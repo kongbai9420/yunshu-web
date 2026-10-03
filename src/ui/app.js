@@ -1731,7 +1731,15 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                     <div style="display:flex; align-items:center; gap:4px;">
                       <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
                     </div>
-                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:6px;">
+                      <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" title="${node.name}">${node.name}</span>
+                      <div class="node-power-capsules" onclick="event.stopPropagation();">
+                        <button type="button" class="pwr-capsule-btn pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">开机</button>
+                        <button type="button" class="pwr-capsule-btn pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">关机</button>
+                        <button type="button" class="pwr-capsule-btn pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">复位</button>
+                        <button type="button" class="pwr-capsule-btn pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">断电</button>
+                      </div>
+                    </div>
                   </div>
                   <div class="probe-model-ip probe-srv-model-ip">
                     <div style="display:flex; align-items:center; gap:6px;">
@@ -1862,7 +1870,15 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                   <div style="display:flex; align-items:center; gap:4px;">
                     <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
                   </div>
-                  <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
+                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:6px;">
+                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" title="${node.name}">${node.name}</span>
+                    <div class="node-power-capsules" onclick="event.stopPropagation();">
+                      <button type="button" class="pwr-capsule-btn pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">开机</button>
+                      <button type="button" class="pwr-capsule-btn pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">关机</button>
+                      <button type="button" class="pwr-capsule-btn pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">复位</button>
+                      <button type="button" class="pwr-capsule-btn pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">断电</button>
+                    </div>
+                  </div>
                 </div>
                 <div class="probe-model-ip probe-srv-model-ip">
                   <div style="display:flex; align-items:center; gap:6px;">
@@ -2621,6 +2637,21 @@ window.openHardwareNodeDetailModal = function(srvId) {
   if (btnPwrOff) btnPwrOff.onclick = () => executePowerAction('off', '强制断电', true);
 
   modal.style.display = 'flex';
+};
+
+window.quickPowerControl = async function(srvId, action, actionName, requireConfirm = false) {
+  const srv = state.servers.find(s => s.id === srvId) || { name: srvId, id: srvId };
+  if (requireConfirm) {
+    const ok = confirm(`⚠️ 安全警示：确定要对服务器「${srv.name}」执行【${actionName}】吗？\n如果操作系统正在运行，可能造成未保存数据丢失！`);
+    if (!ok) return;
+  }
+  showToast(`正在向 ${srv.name} 发送带外【${actionName}】指令...`, 'info');
+  const res = await callApi('control_power', action, srvId);
+  if (res && res.success) {
+    showToast(res.message, 'success');
+  } else {
+    showToast(res?.message || `执行【${actionName}】失败`, 'error');
+  }
 };
 
 function initServerDetailModalEvents() {

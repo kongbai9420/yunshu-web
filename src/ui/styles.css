@@ -967,6 +967,93 @@ body.theme-dark .seg-btn:hover {
   background: rgba(255, 149, 0, 0.12);
   color: var(--system-orange);
 }
+.micro-capsule.capsule-red {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--system-red);
+}
+
+/* Quick Chassis Power Capsule Controls next to node name */
+.node-power-capsules {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+}
+
+.pwr-capsule-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2.5px 6px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-secondary);
+}
+
+.pwr-capsule-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.pwr-capsule-btn:active {
+  transform: scale(0.96);
+}
+
+.pwr-capsule-btn.pwr-on {
+  background: rgba(52, 199, 89, 0.12);
+  color: #248a3d;
+  border-color: rgba(52, 199, 89, 0.28);
+}
+.pwr-capsule-btn.pwr-on:hover {
+  background: #34c759;
+  color: #fff;
+  border-color: #34c759;
+  box-shadow: 0 2px 6px rgba(52, 199, 89, 0.35);
+}
+
+.pwr-capsule-btn.pwr-soft {
+  background: rgba(255, 149, 0, 0.12);
+  color: #c97500;
+  border-color: rgba(255, 149, 0, 0.28);
+}
+.pwr-capsule-btn.pwr-soft:hover {
+  background: #ff9500;
+  color: #fff;
+  border-color: #ff9500;
+  box-shadow: 0 2px 6px rgba(255, 149, 0, 0.35);
+}
+
+.pwr-capsule-btn.pwr-reset {
+  background: rgba(0, 122, 255, 0.12);
+  color: #0062cc;
+  border-color: rgba(0, 122, 255, 0.28);
+}
+.pwr-capsule-btn.pwr-reset:hover {
+  background: #007aff;
+  color: #fff;
+  border-color: #007aff;
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.35);
+}
+
+.pwr-capsule-btn.pwr-off {
+  background: rgba(255, 59, 48, 0.10);
+  color: #d70015;
+  border-color: rgba(255, 59, 48, 0.25);
+}
+.pwr-capsule-btn.pwr-off:hover {
+  background: #ff3b30;
+  color: #fff;
+  border-color: #ff3b30;
+  box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35);
+}
 
 /* Probe Metrics Area & Top Bar (在线/延时放置在数值UI上方，不占整体行比) */
 .probe-metrics-box {
