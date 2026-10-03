@@ -546,6 +546,18 @@ function showToast(message, type = 'info') {
 let isPywebviewReady = false;
 
 function bootstrapApp() {
+  // 0. 处理 URL 查询参数 (直接访问特定 Tab / 演示模式 / 模态窗)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const qToken = urlParams.get('token');
+    if (qToken) {
+      localStorage.setItem('yunshu_token', qToken);
+    }
+    if (urlParams.get('demo') === '1' || urlParams.get('demo') === 'true') {
+      state.demo_mode = true;
+    }
+  } catch (_) {}
+
   initWebHeader();
   initSidebarTabs();
   initThemeToggle();
@@ -561,6 +573,11 @@ function bootstrapApp() {
   initServerDetailModalEvents();
   initSystemLogsTab();
   initSettingsTab();
+
+  if (state.demo_mode) {
+    const btnDemo = document.getElementById('btnToggleDemo');
+    if (btnDemo) btnDemo.classList.add('active');
+  }
 
   // 1. 初次启动即刻渲染探针矩阵骨架（展示配置中的物理节点），绝不等待异步返回
   renderProbeClusterMatrix();
@@ -1098,8 +1115,27 @@ let isFetchingNow = false;
 function startStatusPolling() {
   if (pollIntervalTimer) clearInterval(pollIntervalTimer);
   
+  const isScreenshotMode = new URLSearchParams(window.location.search).get('screenshot') === '1';
+
   // 启动即刻渲染并拉取最新状态快照
-  refreshAllData();
+  refreshAllData().then(() => {
+    const qTab = new URLSearchParams(window.location.search).get('tab');
+    if (qTab) {
+      const navItem = document.querySelector(`.mac-sidebar .nav-item[data-tab="${qTab}"]`);
+      if (navItem) navItem.click();
+    }
+    const qModal = new URLSearchParams(window.location.search).get('modal');
+    if (qModal === 'node' && typeof openHardwareNodeDetailModal === 'function') {
+      openHardwareNodeDetailModal('srv_primary');
+    }
+    if (isScreenshotMode) {
+      document.body.classList.add('screenshot-ready');
+    }
+  });
+
+  if (isScreenshotMode) {
+    return; // 截图模式下执行单次数据拉取渲染，避免无限长轮询阻塞 Headless 浏览器网络空闲检测
+  }
 
   // 界面 UI 画面刷新频率：默认 1 秒平滑重绘（用户可在设置中自定义 1~10s）
   const uiSec = Math.max(1, Math.min(10, state.uiRefreshSec || 1));

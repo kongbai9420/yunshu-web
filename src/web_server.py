@@ -155,6 +155,9 @@ def create_app(bridge: APIBridge, auth_mgr: AuthManager) -> Bottle:
         session = require_auth()
         if not session:
             redirect('/login')
+        q_token = request.query.get("token")
+        if q_token:
+            response.set_cookie("yunshu_session", q_token, path="/", httponly=True)
         return static_file('index.html', root=ui_dir)
 
     # -------------------------------------------------------------
