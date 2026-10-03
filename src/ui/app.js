@@ -3743,7 +3743,8 @@ function initServerClusterManagement() {
         nodeSel.innerHTML = opts;
       }
 
-      document.getElementById('sysSrvTestResultBox').style.display = 'none';
+      const testBox = document.getElementById('sysSrvTestResultBox');
+      if (testBox) testBox.style.display = 'none';
       openSystemServerModal();
     });
   }
@@ -4129,7 +4130,8 @@ window.editSystemServerModal = function(sysId) {
     nodeSel.innerHTML = opts;
   }
 
-  document.getElementById('sysSrvTestResultBox').style.display = 'none';
+  const testBox = document.getElementById('sysSrvTestResultBox');
+  if (testBox) testBox.style.display = 'none';
   openSystemServerModal();
 };
 
