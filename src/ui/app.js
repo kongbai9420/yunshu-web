@@ -526,6 +526,26 @@ function handleClientSideFallback(method, ...args) {
     return { success: true, message: '系统服务器已移除' };
   }
 
+  if (method === 'control_server_power' || method === 'control_power') {
+    const srvId = (method === 'control_power' && ['on','off','soft','reset','cycle','status'].includes(String(args[0]).toLowerCase())) ? args[1] : args[0];
+    const action = (method === 'control_power' && ['on','off','soft','reset','cycle','status'].includes(String(args[0]).toLowerCase())) ? args[0] : (args[1] || 'status');
+    const srv = (state.servers || []).find(s => s.id === srvId);
+    const srvName = srv ? srv.name : '服务器';
+    const actionMap = {
+      'on': '开机 (Power On)',
+      'soft': 'ACPI 关机 (Soft Shutdown)',
+      'reset': '强制重启 (Reset)',
+      'off': '强制断电 (Power Off)',
+      'status': '获取电源状态'
+    };
+    return {
+      success: true,
+      action: action,
+      power_state: action === 'off' ? 'off' : 'on',
+      message: `[${srvName}] IPMI 电源指令 [${actionMap[action] || action}] 执行成功 (模拟)`
+    };
+  }
+
   return { success: true, fallback: true };
 }
 
@@ -2593,7 +2613,7 @@ window.openHardwareNodeDetailModal = function(srvId) {
   if (pwrBadge) {
     pwrBadge.textContent = '状态: 读取中...';
     pwrBadge.className = 'micro-capsule capsule-blue';
-    callApi('control_power', 'status', srv.id).then(res => {
+    callApi('control_server_power', srv.id, 'status').then(res => {
       if (res && res.success) {
         const isOn = res.power_state === 'on' || (res.message && res.message.toLowerCase().includes('on'));
         pwrBadge.textContent = isOn ? '电源: 已开机 (ON)' : '电源: 已关机 (OFF)';
@@ -2618,7 +2638,7 @@ window.openHardwareNodeDetailModal = function(srvId) {
       if (!ok) return;
     }
     showToast(`正在向 ${srv.name} 发送带外【${actionName}】指令...`, 'info');
-    const res = await callApi('control_power', action, activeSrvId);
+    const res = await callApi('control_server_power', activeSrvId, action);
     if (res && res.success) {
       showToast(res.message, 'success');
       if (pwrBadge) {
@@ -2675,7 +2695,7 @@ window.handleChassisPower = async function(srvId, action) {
 
   showToast(`正在向 [${srvName}] 发送 IPMI ${text} 指令...`, 'info');
   try {
-    const res = await callApi('control_power', action, srvId);
+    const res = await callApi('control_server_power', srvId, action);
     if (res && res.success) {
       showToast(res.message || `[${srvName}] IPMI ${text} 执行成功`, 'success');
       // 延迟 1.5 秒自动重测并更新当前服务器在线状态
@@ -2686,7 +2706,7 @@ window.handleChassisPower = async function(srvId, action) {
       showToast(res?.error || res?.message || `[${srvName}] IPMI ${text} 执行失败`, 'error');
     }
   } catch (err) {
-    showToast(`电源控制通信异常: ${err}`, 'error');
+    showToast(`电源控制通信异常: ${err.message || err}`, 'error');
   }
 };
 
@@ -2697,7 +2717,7 @@ window.quickPowerControl = async function(srvId, action, actionName, requireConf
     if (!ok) return;
   }
   showToast(`正在向 ${srv.name} 发送带外【${actionName}】指令...`, 'info');
-  const res = await callApi('control_power', action, srvId);
+  const res = await callApi('control_server_power', srvId, action);
   if (res && res.success) {
     showToast(res.message, 'success');
   } else {

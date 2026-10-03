@@ -896,7 +896,7 @@ class IPMICore:
         }
         action = (action or "status").lower().strip()
         if action not in valid_actions:
-            return False, f"不支持的电源操作: {action}", None
+            return {"success": False, "error": f"不支持的电源操作: {action}", "message": f"不支持的电源操作: {action}"}
 
         action_label = valid_actions[action]
         srv = server_override if server_override else self.config_mgr.get_active_server()
@@ -904,15 +904,32 @@ class IPMICore:
 
         if self.demo_mode:
             simulated_status = "on" if action != "off" else "off"
-            return True, f"[{srv.get('name')}] 电源操作【{action_label}】执行成功 (演示模式)", simulated_status
+            return {
+                "success": True,
+                "action": action,
+                "message": f"[{srv.get('name')}] 电源操作【{action_label}】执行成功 (演示模式)",
+                "power_state": simulated_status
+            }
 
         succ, out, _ = self.execute_ipmitool(["chassis", "power", action], timeout=10.0, server_override=srv)
         clean_out = out.strip() if out else ""
         if succ:
             # 尝试提取电源状态 (Chassis Power is on / off)
             pwr_state = "on" if "is on" in clean_out.lower() else ("off" if "is off" in clean_out.lower() else None)
-            return True, f"[{srv.get('name')}] 已成功执行【{action_label}】", pwr_state
-        return False, f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}", None
+            return {
+                "success": True,
+                "action": action,
+                "message": f"[{srv.get('name')}] 已成功执行【{action_label}】",
+                "power_state": pwr_state,
+                "output": clean_out
+            }
+        return {
+            "success": False,
+            "action": action,
+            "error": f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}",
+            "message": f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}",
+            "output": clean_out
+        }
 
     def _ensure_sdr_cached(self, srv):
         """确保针对该节点生成本地 SDR 静态缓存文件。生成成功后后续查询均可用 -S 极速读取"""

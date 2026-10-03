@@ -401,32 +401,16 @@ class APIBridge:
             enable_legacy_ssh_algorithms()
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            connected = False
-            last_err = None
-            for attempt in range(2):
-                try:
-                    client.connect(
-                        hostname=host.strip(),
-                        port=int(port or 22),
-                        username=user.strip(),
-                        password=password or None,
-                        timeout=8.0,
-                        banner_timeout=15.0,
-                        auth_timeout=10.0,
-                        look_for_keys=False,
-                        allow_agent=False
-                    )
-                    connected = True
-                    break
-                except Exception as e:
-                    last_err = e
-                    if ("banner" in str(e).lower() or isinstance(e, EOFError)) and attempt == 0:
-                        time.sleep(0.5)
-                        continue
-                    break
-
-            if not connected:
-                return {"success": False, "error": str(last_err), "message": f"连接 SSH 失败: {last_err}"}
+            client.connect(
+                hostname=host.strip(),
+                port=int(port or 22),
+                username=user.strip(),
+                password=password or None,
+                timeout=5.0,
+                banner_timeout=5.0,
+                look_for_keys=False,
+                allow_agent=False
+            )
             cmd = "cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | head -1 | cut -d= -f2 | tr -d '\"' || cat /etc/redhat-release 2>/dev/null || uname -s"
             stdin, stdout, stderr = client.exec_command(cmd, timeout=3.0)
             res = stdout.read().decode("utf-8", errors="replace").strip()
@@ -746,16 +730,53 @@ class APIBridge:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def control_server_power(self, srv_id, action):
-        """对指定硬件节点执行 IPMI 电源控制 (chassis power on/off/soft/reset/cycle)"""
+    def control_server_power(self, *args, **kwargs):
+        """对指定硬件节点执行 IPMI 电源控制 (chassis power on/off/soft/reset/cycle/status)"""
+        # 支持 (srv_id, action) 与 (action, srv_id) 双向参数自适应
+        srv_id = None
+        action = None
+        if len(args) >= 2:
+            a1, a2 = args[0], args[1]
+            if str(a1).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
+                action, srv_id = str(a1).lower(), str(a2)
+            else:
+                srv_id, action = str(a1), str(a2).lower()
+        elif len(args) == 1:
+            if str(args[0]).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
+                action = str(args[0]).lower()
+                srv_id = self._config_mgr.get("active_server_id", "srv_primary")
+            else:
+                srv_id = str(args[0])
+                action = "status"
+        else:
+            srv_id = kwargs.get("srv_id") or kwargs.get("server_id") or self._config_mgr.get("active_server_id", "srv_primary")
+            action = kwargs.get("action", "status")
+
         try:
             srv = next((s for s in self._config_mgr.get_servers() if s.get("id") == srv_id), None)
             if not srv:
                 return {"success": False, "error": f"未找到 ID 为 [{srv_id}] 的硬件节点"}
-            return self._ipmi_core.control_chassis_power(action, server_override=srv)
+            res = self._ipmi_core.control_chassis_power(action, server_override=srv)
+            if isinstance(res, dict):
+                return res
+            if isinstance(res, (list, tuple)):
+                succ = bool(res[0])
+                msg = res[1] if len(res) > 1 else ""
+                pwr_state = res[2] if len(res) > 2 else None
+                return {
+                    "success": succ,
+                    "action": action,
+                    "message": msg,
+                    "power_state": pwr_state
+                }
+            return {"success": True, "data": res}
         except Exception as e:
             logger.error(f"control_server_power error: {e}")
             return {"success": False, "error": f"电源控制执行异常: {str(e)}"}
+
+    def control_power(self, *args, **kwargs):
+        """兼容 Web 与前端各版本调用的电源控制别名方法: control_power(action, srv_id) 或 control_power(srv_id, action)"""
+        return self.control_server_power(*args, **kwargs)
 
     def minimize_window(self):
         if self._window:
