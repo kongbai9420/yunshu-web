@@ -4668,12 +4668,22 @@ function initSystemLogsTab() {
   if (btnToggleDebug) {
     btnToggleDebug.addEventListener('change', async (e) => {
       const enabled = e.target.checked;
-      showToast(`正在切换日志模式: ${enabled ? '全量调试模式' : '标准报错模式'}...`, 'info');
-      const res = await callApi('set_log_debug_mode', enabled);
-      if (res && res.success) {
-        showToast(res.message, 'success');
-        updateLogViewUI(enabled);
-        await refreshSystemLogs(true);
+      showToast(`正在切换日志模式: ${enabled ? '调试模式 (重要事件与错误)' : '标准模式 (仅实时报错)'}...`, 'info');
+      try {
+        const res = await callApi('set_log_debug_mode', enabled);
+        if (res && res.success) {
+          showToast(res.message || '日志模式切换成功', 'success');
+          updateLogViewUI(enabled);
+          await refreshSystemLogs(true);
+        } else {
+          showToast(res?.error || '切换日志模式失败', 'error');
+          btnToggleDebug.checked = !enabled;
+          updateLogViewUI(!enabled);
+        }
+      } catch (err) {
+        showToast(`切换日志模式异常: ${err.message || err}`, 'error');
+        btnToggleDebug.checked = !enabled;
+        updateLogViewUI(!enabled);
       }
     });
   }

@@ -1121,11 +1121,15 @@ class APIBridge:
 
     def set_log_debug_mode(self, enabled):
         try:
+            if isinstance(enabled, str):
+                b_enabled = enabled.strip().lower() in ("1", "true", "yes", "on")
+            else:
+                b_enabled = bool(enabled)
             if self._log_mgr:
-                self._log_mgr.set_debug_mode(enabled)
+                self._log_mgr.set_debug_mode(b_enabled)
             if self._config_mgr:
-                self._config_mgr.set_log_param("log_debug_mode", bool(enabled))
-            return {"success": True, "debug_mode": bool(enabled), "message": f"已{'开启全量调试日志' if enabled else '切换为仅显示错误告警'}"}
+                self._config_mgr.set_log_param("log_debug_mode", b_enabled)
+            return {"success": True, "debug_mode": b_enabled, "message": f"已{'开启调试日志模式' if b_enabled else '切换为仅显示错误告警'}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

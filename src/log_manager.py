@@ -165,13 +165,21 @@ class LogManager:
             root_logger.addHandler(file_handler)
 
     def set_debug_mode(self, enabled: bool):
-        self.debug_mode = bool(enabled)
+        if isinstance(enabled, str):
+            self.debug_mode = enabled.strip().lower() in ("1", "true", "yes", "on")
+        else:
+            self.debug_mode = bool(enabled)
         if self.config_mgr:
-            self.config_mgr.set("log_debug_mode", self.debug_mode)
-            self.config_mgr.save()
+            if hasattr(self.config_mgr, "set_log_param"):
+                self.config_mgr.set_log_param("log_debug_mode", self.debug_mode)
+            else:
+                self.config_mgr.set("log_debug_mode", self.debug_mode)
+                self.config_mgr.save()
 
     def get_debug_mode(self) -> bool:
         if self.config_mgr:
+            if hasattr(self.config_mgr, "get_log_param"):
+                return bool(self.config_mgr.get_log_param("log_debug_mode", False))
             return bool(self.config_mgr.get("log_debug_mode", False))
         return self.debug_mode
 
