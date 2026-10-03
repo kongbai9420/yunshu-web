@@ -1744,19 +1744,23 @@ function renderProbeClusterMatrix(forceRebuild = false) {
               </div>
             </div>
 
-            <!-- Column Power Capsule Bar (在名字/基本信息与工况指标之间，从上到下竖向排列 4 个电源胶囊) -->
+            <!-- Column Power Capsule Bar (符合 Apple HIG 胶囊规范，从上到下四联微型分段胶囊) -->
             <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
               <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
-                <span>🟢</span><span>开机</span>
+                <span class="pwr-status-dot green"></span>
+                <span>开机</span>
               </button>
               <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
-                <span>🟡</span><span>关机</span>
+                <span class="pwr-status-dot orange"></span>
+                <span>关机</span>
               </button>
               <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
-                <span>🔄</span><span>复位</span>
+                <span class="pwr-status-dot blue"></span>
+                <span>复位</span>
               </button>
               <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
-                <span>🛑</span><span>断电</span>
+                <span class="pwr-status-dot red"></span>
+                <span>断电</span>
               </button>
             </div>
 
@@ -1891,19 +1895,23 @@ function renderProbeClusterMatrix(forceRebuild = false) {
             </div>
           </div>
 
-          <!-- Column Power Capsule Bar (在名字/基本信息与工况指标之间，从上到下竖向排列 4 个电源胶囊) -->
+          <!-- Column Power Capsule Bar (符合 Apple HIG 胶囊规范，从上到下四联微型分段胶囊) -->
           <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
             <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
-              <span>🟢</span><span>开机</span>
+              <span class="pwr-status-dot green"></span>
+              <span>开机</span>
             </button>
             <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
-              <span>🟡</span><span>关机</span>
+              <span class="pwr-status-dot orange"></span>
+              <span>关机</span>
             </button>
             <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
-              <span>🔄</span><span>复位</span>
+              <span class="pwr-status-dot blue"></span>
+              <span>复位</span>
             </button>
             <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
-              <span>🛑</span><span>断电</span>
+              <span class="pwr-status-dot red"></span>
+              <span>断电</span>
             </button>
           </div>
 

@@ -972,16 +972,18 @@ body.theme-dark .seg-btn:hover {
   color: var(--system-red);
 }
 
-/* Column Power Capsule Bar (在节点名字与工况指标之间，竖向从上到下排列四个胶囊) */
+/* Apple HIG Micro Segmented Capsule Bar (物理带外电源四联微型分段胶囊)
+   参考 apple-design-skill: segmented-controls.md / materials.md / buttons.md
+   采用标准 9999px 圆角、亚克力轻量高透底色、系统语义高亮、精致状态小圆点与清晰按压态 */
 .node-power-column-bar {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 3.5px;
-  padding: 4px 6px;
+  gap: 3px;
+  padding: 3px;
   background: var(--surface-secondary);
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border-subtle);
   flex-shrink: 0;
   box-sizing: border-box;
@@ -990,118 +992,98 @@ body.theme-dark .seg-btn:hover {
 .node-power-column-bar .pwr-col-capsule {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 5px;
   width: 100%;
-  min-width: 52px;
-  padding: 2px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
+  min-width: 58px;
+  height: 18px;
+  padding: 0 6px;
+  font-family: var(--font-system);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 18px;
   border-radius: 9999px;
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
-  background: var(--surface-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: transparent;
+  color: var(--text-secondary);
+  box-sizing: border-box;
 }
 
 .node-power-column-bar .pwr-col-capsule:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.06);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .node-power-column-bar .pwr-col-capsule:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
+  opacity: 0.85;
 }
 
-.node-power-column-bar .pwr-col-capsule.pwr-on {
-  color: #248a3d;
-  background: rgba(52, 199, 89, 0.12);
-  border-color: rgba(52, 199, 89, 0.3);
+/* 胶囊状态小圆点规范 (参考 probe-mode-dot 像素级规范) */
+.pwr-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
 }
-.node-power-column-bar .pwr-col-capsule.pwr-on:hover {
-  background: #34c759;
-  color: #ffffff;
-  border-color: #34c759;
-  box-shadow: 0 2px 6px rgba(52, 199, 89, 0.35);
-}
+.pwr-status-dot.green { background: var(--system-green); box-shadow: 0 0 4px rgba(52, 199, 89, 0.4); }
+.pwr-status-dot.orange { background: var(--system-orange); box-shadow: 0 0 4px rgba(255, 149, 0, 0.4); }
+.pwr-status-dot.blue { background: var(--system-blue); box-shadow: 0 0 4px rgba(0, 122, 255, 0.4); }
+.pwr-status-dot.red { background: var(--system-red); box-shadow: 0 0 4px rgba(255, 59, 48, 0.4); }
 
-.node-power-column-bar .pwr-col-capsule.pwr-soft {
-  color: #c97500;
-  background: rgba(255, 149, 0, 0.12);
-  border-color: rgba(255, 149, 0, 0.3);
-}
-.node-power-column-bar .pwr-col-capsule.pwr-soft:hover {
-  background: #ff9500;
-  color: #ffffff;
-  border-color: #ff9500;
-  box-shadow: 0 2px 6px rgba(255, 149, 0, 0.35);
-}
-
-.node-power-column-bar .pwr-col-capsule.pwr-reset {
-  color: #0062cc;
-  background: rgba(0, 122, 255, 0.12);
-  border-color: rgba(0, 122, 255, 0.3);
-}
-.node-power-column-bar .pwr-col-capsule.pwr-reset:hover {
-  background: #007aff;
-  color: #ffffff;
-  border-color: #007aff;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.35);
-}
-
-.node-power-column-bar .pwr-col-capsule.pwr-off {
-  color: #d70015;
-  background: rgba(255, 59, 48, 0.10);
-  border-color: rgba(255, 59, 48, 0.28);
+.node-power-column-bar .pwr-col-capsule.pwr-on:hover .pwr-status-dot {
+  box-shadow: 0 0 6px var(--system-green);
 }
 .node-power-column-bar .pwr-col-capsule.pwr-off:hover {
-  background: #ff3b30;
-  color: #ffffff;
-  border-color: #ff3b30;
-  box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35);
+  color: var(--system-red);
 }
 
-/* Compact Grid 下，如果将 node-power-column-bar 放在纵向 flex 里，让它横向排列 4 颗胶囊 */
+/* Compact Grid 下横向自适应排布 */
 .probe-cards-grid.compact-grid .node-power-column-bar {
   flex-direction: row;
   justify-content: space-between;
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 3px;
+  padding: 3px 4px;
   width: 100%;
 }
 .probe-cards-grid.compact-grid .node-power-column-bar .pwr-col-capsule {
   flex: 1 1 0;
   min-width: 0;
-  padding: 3px 2px;
+  justify-content: center;
+  padding: 0 2px;
+  gap: 4px;
 }
 
 /* Row 模式下电源竖列胶囊尺寸与间距调整：位于左侧节点信息与中间工况指标之间，真正竖向 1 列从上到下排列 4 颗胶囊 */
 .probe-cards-grid.compact-row .node-power-column-bar {
   display: flex !important;
   flex-direction: column !important;
-  justify-content: center !important;
+  justify-content: space-between !important;
   align-items: center !important;
-  flex: 0 0 66px !important;
-  width: 66px !important;
-  min-width: 66px !important;
-  max-width: 66px !important;
+  flex: 0 0 68px !important;
+  width: 68px !important;
+  min-width: 68px !important;
+  max-width: 68px !important;
   height: 74px !important;
   min-height: 74px !important;
   margin: 0 2px !important;
-  padding: 3px 4px !important;
-  gap: 2.5px !important;
+  padding: 3px !important;
+  gap: 2px !important;
 }
 
 .probe-cards-grid.compact-row .node-power-column-bar .pwr-col-capsule {
   width: 100% !important;
-  height: 15px !important;
-  padding: 0 4px !important;
-  font-size: 9px !important;
-  line-height: 15px !important;
+  height: 16px !important;
+  padding: 0 5px !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
 }
 
 /* Probe Metrics Area & Top Bar (在线/延时放置在数值UI上方，不占整体行比) */
