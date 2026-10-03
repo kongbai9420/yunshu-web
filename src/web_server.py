@@ -13,7 +13,17 @@ import logging
 import argparse
 from typing import Dict, Any, Optional
 from socketserver import ThreadingMixIn
-from wsgiref.simple_server import WSGIServer, make_server
+from wsgiref.simple_server import WSGIServer, WSGIRequestHandler, make_server
+
+class QuietWSGIRequestHandler(WSGIRequestHandler):
+    def log_message(self, format, *args):
+        # 轮询无报错的日常 HTTP 2xx/3xx 请求不输出底噪，杜绝日志膨胀
+        if len(args) >= 2:
+            status_code = str(args[1])
+            if status_code.startswith("2") or status_code.startswith("3"):
+                return
+        # 仅对 4xx / 5xx 等异常情况输出记录
+        logger.warning(f"HTTP {self.client_address[0]}: " + (format % args))
 
 # Set up module resolution
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -292,7 +302,9 @@ def create_app(bridge: APIBridge, auth_mgr: AuthManager) -> Bottle:
         if not session:
             response.status = 401
             client_ip = get_client_ip()
-            logger.warning(f"Unauthorized API access blocked: /api/{action} from {client_ip}")
+            # 轮询状态接口在未登录时不刷屏产生无效日志
+            if action != "get_status":
+                logger.warning(f"Unauthorized API access blocked: /api/{action} from {client_ip}")
             return {
                 "status": "error",
                 "code": 401,
@@ -406,7 +418,7 @@ def run_web_server(host: str = "0.0.0.0", port: int = 8080, config_path: Optiona
     logger.info("=" * 66)
 
     try:
-        server = make_server(host, port, app, server_class=ThreadingWSGIServer)
+        server = make_server(host, port, app, server_class=ThreadingWSGIServer, handler_class=QuietWSGIRequestHandler)
     except OSError as e:
         logger.error(f"[错误] 绑定端口 {port} 失败: {e}")
         logger.error(f"[提示] 该端口可能已被其他程序占用，可尝试指定其他端口运行，例如: python run_web.py --port 8088")

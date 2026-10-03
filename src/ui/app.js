@@ -4648,11 +4648,11 @@ function updateLogViewUI(debugEnabled) {
 
   if (badge) {
     badge.className = `badge ${debugEnabled ? 'badge-danger' : 'badge-normal'}`;
-    badge.textContent = debugEnabled ? '🐞 调试模式 (全量详细日志)' : '标准模式 (仅实时报错)';
+    badge.textContent = debugEnabled ? '🐞 调试模式 (重要事件与错误)' : '标准模式 (仅实时报错)';
   }
   if (ruleText) {
     ruleText.style.color = debugEnabled ? '#a371f7' : '#f0883e';
-    ruleText.textContent = debugEnabled ? '所有级别 (INFO / DEBUG / WARNING / ERROR)' : '仅 ERROR / WARNING / 异常报错';
+    ruleText.textContent = debugEnabled ? '重要业务事件 + 全部异常报错 (过滤周期轮询底噪)' : '仅 ERROR / WARNING / 异常报错';
   }
 }
 

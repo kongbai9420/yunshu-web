@@ -633,6 +633,7 @@ class IPMICore:
 
         mode_names = {"auto": "原厂托管", "dynamic": "曲线温控", "manual": "手动全局", "preset": "情景方案"}
         mode_label = mode_names.get(mode, mode)
+        logger.info(f"[{srv.get('name')}] 温控模式切换为: {mode_label}")
 
         if self.demo_mode:
             with self.lock:
@@ -721,6 +722,7 @@ class IPMICore:
 
         if not preserve_mode:
             self.config_mgr.set_server_mode(srv_id, "manual", manual_speed=speed_percent)
+            logger.info(f"[{srv.get('name')}] 手动设定全局风扇转速 -> {speed_percent}%")
 
         if self.demo_mode:
             with self.lock:
@@ -1789,7 +1791,7 @@ class IPMICore:
 
         last_spd = self._last_applied_speeds.get(srv_id, -1)
         if abs(target_speed - last_spd) >= 2 or last_spd == -1:
-            logger.info(f"Node [{target_srv.get('name')}] Dynamic Adjust: CPU={max_cpu_temp}C -> Target Speed={target_speed}%")
+            logger.debug(f"Node [{target_srv.get('name')}] Dynamic Adjust: CPU={max_cpu_temp}C -> Target Speed={target_speed}%")
             self.set_all_fans_speed(target_speed, server_override=target_srv, preserve_mode=True)
             self._last_applied_speeds[srv_id] = target_speed
 

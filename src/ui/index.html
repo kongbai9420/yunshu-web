@@ -1224,11 +1224,11 @@
                 <h1 class="page-title" style="margin:0;">系统运行日志</h1>
                 <span class="badge badge-normal" id="logModeBadge" style="font-size:11px; padding:2px 8px;">标准模式 (仅实时报错)</span>
               </div>
-              <p class="page-desc" style="margin-top:4px;">默认仅展示实时异常与警告报错信息；开启「调试模式」可抓取底层详细交互全量报文</p>
+              <p class="page-desc" style="margin-top:4px;">默认仅展示实时异常与警告报错信息；开启「调试模式」展示重要操作与异常报错，无报错的周期轮询底噪自动屏蔽，杜绝日志膨胀</p>
             </div>
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
               <!-- 调试模式开关切换 -->
-              <label class="apple-switch-label" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:var(--surface-secondary); padding:4px 10px; border-radius:9999px; border:1px solid var(--border-subtle);" title="开启调试模式后，日志面板将实时显示包括 INFO/DEBUG 在内的所有系统日志">
+              <label class="apple-switch-label" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:var(--surface-secondary); padding:4px 10px; border-radius:9999px; border:1px solid var(--border-subtle);" title="开启调试模式后，日志面板将实时显示重要业务事件与所有异常报错（轮询底噪已智能过滤）">
                 <span style="font-size:12px; font-weight:600; color:var(--text-primary);">🐞 调试模式</span>
                 <label class="apple-switch" style="margin:0;">
                   <input type="checkbox" id="btnToggleLogDebug">
