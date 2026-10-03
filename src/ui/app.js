@@ -1721,47 +1721,37 @@ function renderProbeClusterMatrix(forceRebuild = false) {
           <!-- Primary Hardware Node Card (主机节点) -->
           <div class="probe-card" id="probeCard_${node.id}" data-srv-id="${node.id}">
             <div class="probe-header">
-              <div class="probe-title-group" style="width:100%;">
-                <label class="probe-select-wrapper" onclick="event.stopPropagation();" title="选择以进行批量操作">
-                  <input type="checkbox" class="probe-checkbox" data-srv-id="${node.id}" ${isChecked ? 'checked' : ''} onchange="toggleServerSelection('${node.id}', this.checked)">
-                </label>
-                <span class="status-dot probe-srv-dot"></span>
-                <div style="min-width:0; flex:1;">
-                  <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
-                    <div style="display:flex; align-items:center; gap:4px;">
-                      <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+              <div class="probe-title-group" style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1;">
+                  <label class="probe-select-wrapper" onclick="event.stopPropagation();" title="选择以进行批量操作" style="margin-top:2px;">
+                    <input type="checkbox" class="probe-checkbox" data-srv-id="${node.id}" ${isChecked ? 'checked' : ''} onchange="toggleServerSelection('${node.id}', this.checked)">
+                  </label>
+                  <span class="status-dot probe-srv-dot" style="margin-top:5px;"></span>
+                  <div style="min-width:0; flex:1;">
+                    <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
+                      <div style="display:flex; align-items:center; gap:4px;">
+                        <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+                      </div>
+                      <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                     </div>
-                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
-                  </div>
-                  <div class="probe-model-ip probe-srv-model-ip">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                      <span class="probe-model-name">${node.model || '通用服务器'}</span>
+                    <div class="probe-model-ip probe-srv-model-ip">
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="probe-model-name">${node.model || '通用服务器'}</span>
+                      </div>
+                      <span class="probe-ip-addr">BMC: ${node.ip}</span>
+                      ${node.serial ? `<span class="micro-capsule capsule-indigo" style="font-size:8.5px; padding:0 4px; line-height:13px; font-weight:600; margin-top:2px; display:inline-block; align-self:flex-start;" title="出厂资产序列号 (Service Tag / SN)">SN: ${node.serial}</span>` : ''}
                     </div>
-                    <span class="probe-ip-addr">BMC: ${node.ip}</span>
-                    ${node.serial ? `<span class="micro-capsule capsule-indigo" style="font-size:8.5px; padding:0 4px; line-height:13px; font-weight:600; margin-top:2px; display:inline-block; align-self:flex-start;" title="出厂资产序列号 (Service Tag / SN)">SN: ${node.serial}</span>` : ''}
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Column Power Capsule Bar (符合 Apple HIG 胶囊规范，从上到下四联微型分段胶囊) -->
-            <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
-              <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
-                <span class="pwr-status-dot green"></span>
-                <span>开机</span>
-              </button>
-              <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
-                <span class="pwr-status-dot orange"></span>
-                <span>关机</span>
-              </button>
-              <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
-                <span class="pwr-status-dot blue"></span>
-                <span>复位</span>
-              </button>
-              <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
-                <span class="pwr-status-dot red"></span>
-                <span>断电</span>
-              </button>
+                <!-- 在名字与工况指标之间这中间空出的从上到下排序的小胶囊列 (精准同步云枢-Release架构) -->
+                <div class="probe-power-capsules-column" onclick="event.stopPropagation();" title="IPMI 机箱电源控制">
+                  <button type="button" class="power-capsule capsule-pwr-on" onclick="handleChassisPower('${node.id}', 'on')" title="IPMI 远程开机 (Power On)">开机</button>
+                  <button type="button" class="power-capsule capsule-pwr-soft" onclick="handleChassisPower('${node.id}', 'soft')" title="IPMI 安全软关机 (ACPI 正常关机)">关机</button>
+                  <button type="button" class="power-capsule capsule-pwr-reset" onclick="handleChassisPower('${node.id}', 'reset')" title="IPMI 硬件重启 (Chassis Reset)">重启</button>
+                  <button type="button" class="power-capsule capsule-pwr-off" onclick="handleChassisPower('${node.id}', 'off')" title="IPMI 强制断电 (硬关机)">断电</button>
+                </div>
+              </div>
             </div>
 
             <!-- Metrics Area with Status Pill placed ON TOP of numerical UI (不在占用整体行比) -->
@@ -1872,47 +1862,37 @@ function renderProbeClusterMatrix(forceRebuild = false) {
       return `
         <div class="probe-card" id="probeCard_${node.id}" data-srv-id="${node.id}">
           <div class="probe-header">
-            <div class="probe-title-group" style="width:100%;">
-              <label class="probe-select-wrapper" onclick="event.stopPropagation();" title="选择以进行批量操作">
-                <input type="checkbox" class="probe-checkbox" data-srv-id="${node.id}" ${isChecked ? 'checked' : ''} onchange="toggleServerSelection('${node.id}', this.checked)">
-              </label>
-              <span class="status-dot probe-srv-dot"></span>
-              <div style="min-width:0; flex:1;">
-                <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin-bottom:2px;">
-                  <div style="display:flex; align-items:center; gap:4px;">
-                    <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+            <div class="probe-title-group" style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1;">
+                <label class="probe-select-wrapper" onclick="event.stopPropagation();" title="选择以进行批量操作" style="margin-top:2px;">
+                  <input type="checkbox" class="probe-checkbox" data-srv-id="${node.id}" ${isChecked ? 'checked' : ''} onchange="toggleServerSelection('${node.id}', this.checked)">
+                </label>
+                <span class="status-dot probe-srv-dot" style="margin-top:5px;"></span>
+                <div style="min-width:0; flex:1;">
+                  <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin-bottom:2px;">
+                    <div style="display:flex; align-items:center; gap:4px;">
+                      <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+                    </div>
+                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                   </div>
-                  <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
-                </div>
-                <div class="probe-model-ip probe-srv-model-ip">
-                  <div style="display:flex; align-items:center; gap:6px;">
-                    <span class="probe-model-name">${node.model || '通用服务器'}</span>
+                  <div class="probe-model-ip probe-srv-model-ip">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span class="probe-model-name">${node.model || '通用服务器'}</span>
+                    </div>
+                    <span class="probe-ip-addr">BMC: ${node.ip}</span>
+                    ${node.serial ? `<span class="micro-capsule capsule-indigo" style="font-size:8.5px; padding:0 4px; line-height:13px; font-weight:600; margin-top:2px; display:inline-block; align-self:flex-start;" title="出厂资产序列号 (Service Tag / SN)">SN: ${node.serial}</span>` : ''}
                   </div>
-                  <span class="probe-ip-addr">BMC: ${node.ip}</span>
-                  ${node.serial ? `<span class="micro-capsule capsule-indigo" style="font-size:8.5px; padding:0 4px; line-height:13px; font-weight:600; margin-top:2px; display:inline-block; align-self:flex-start;" title="出厂资产序列号 (Service Tag / SN)">SN: ${node.serial}</span>` : ''}
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Column Power Capsule Bar (符合 Apple HIG 胶囊规范，从上到下四联微型分段胶囊) -->
-          <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
-            <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
-              <span class="pwr-status-dot green"></span>
-              <span>开机</span>
-            </button>
-            <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
-              <span class="pwr-status-dot orange"></span>
-              <span>关机</span>
-            </button>
-            <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
-              <span class="pwr-status-dot blue"></span>
-              <span>复位</span>
-            </button>
-            <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
-              <span class="pwr-status-dot red"></span>
-              <span>断电</span>
-            </button>
+              <!-- 在名字与工况指标之间这中间空出的从上到下排序的小胶囊列 (精准同步云枢-Release架构) -->
+              <div class="probe-power-capsules-column" onclick="event.stopPropagation();" title="IPMI 机箱电源控制">
+                <button type="button" class="power-capsule capsule-pwr-on" onclick="handleChassisPower('${node.id}', 'on')" title="IPMI 远程开机 (Power On)">开机</button>
+                <button type="button" class="power-capsule capsule-pwr-soft" onclick="handleChassisPower('${node.id}', 'soft')" title="IPMI 安全软关机 (ACPI 正常关机)">关机</button>
+                <button type="button" class="power-capsule capsule-pwr-reset" onclick="handleChassisPower('${node.id}', 'reset')" title="IPMI 硬件重启 (Chassis Reset)">重启</button>
+                <button type="button" class="power-capsule capsule-pwr-off" onclick="handleChassisPower('${node.id}', 'off')" title="IPMI 强制断电 (硬关机)">断电</button>
+              </div>
+            </div>
           </div>
 
           <!-- Metrics Area with Status Pill placed ON TOP of numerical UI (不在占用整体行比) -->
@@ -2661,6 +2641,53 @@ window.openHardwareNodeDetailModal = function(srvId) {
   if (btnPwrOff) btnPwrOff.onclick = () => executePowerAction('off', '强制断电', true);
 
   modal.style.display = 'flex';
+};
+
+window.handleChassisPower = async function(srvId, action) {
+  const srv = (state.servers || []).find(s => s.id === srvId);
+  const srvName = srv ? srv.name : '该服务器';
+
+  const actionTextMap = {
+    'on': '开机 (Power On)',
+    'soft': 'ACPI 关机 (Soft Shutdown)',
+    'reset': '强制重启 (Chassis Reset)',
+    'off': '⚠️ 强制断电 (硬关机)'
+  };
+  const text = actionTextMap[action] || action;
+
+  if (action === 'off') {
+    if (!confirm(`【高危操作警告】确定要向「${srvName}」下发强制断电指令吗？\n\n该操作将直接切断物理机供电（硬关机），未保存的数据将丢失！`)) {
+      return;
+    }
+  } else if (action === 'reset') {
+    if (!confirm(`确定要重启服务器「${srvName}」吗？\n\n将向 BMC 发送硬件跳线 Reset 信号。`)) {
+      return;
+    }
+  } else if (action === 'soft') {
+    if (!confirm(`确定要向「${srvName}」发送 ACPI 正常关机信号吗？\n\n操作系统将尝试保存数据并退出。`)) {
+      return;
+    }
+  } else if (action === 'on') {
+    if (!confirm(`确定要向「${srvName}」下发 IPMI 远程开机指令吗？`)) {
+      return;
+    }
+  }
+
+  showToast(`正在向 [${srvName}] 发送 IPMI ${text} 指令...`, 'info');
+  try {
+    const res = await callApi('control_power', action, srvId);
+    if (res && res.success) {
+      showToast(res.message || `[${srvName}] IPMI ${text} 执行成功`, 'success');
+      // 延迟 1.5 秒自动重测并更新当前服务器在线状态
+      setTimeout(async () => {
+        await refreshAllData();
+      }, 1500);
+    } else {
+      showToast(res?.error || res?.message || `[${srvName}] IPMI ${text} 执行失败`, 'error');
+    }
+  } catch (err) {
+    showToast(`电源控制通信异常: ${err}`, 'error');
+  }
 };
 
 window.quickPowerControl = async function(srvId, action, actionName, requireConfirm = false) {
