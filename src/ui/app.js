@@ -4660,14 +4660,24 @@ function initSettingsTab() {
     chkAutostart.checked = state.autostart_active;
     updateAutostartTipUI(state.autostart_active);
     const pathEl = document.getElementById('cfgIpmitoolPath');
-    if (pathEl) pathEl.textContent = 'ipmitool (内置 Cygwin 稳定运行时)';
+    if (pathEl) {
+      pathEl.textContent = state.is_docker ? 'ipmitool (Linux 容器原生高并发运行时)' : 'ipmitool (内置 Cygwin 稳定运行时)';
+    }
   }, 300);
 }
 
 function updateAutostartTipUI(isActive) {
   const tip = document.getElementById('autostartStatusTip');
+  const chkAutostart = document.getElementById('chkAutoStart');
   if (tip) {
-    if (isActive) {
+    if (state.is_docker) {
+      tip.innerHTML = '🐳 <strong>Docker 容器自启动已托管</strong>：开机自启由容器编排策略 (<code>restart: unless-stopped</code>) 全自动接管。容器启动后将自动下发恢复各节点的温控策略。';
+      tip.style.borderColor = 'rgba(10, 132, 255, 0.4)';
+      if (chkAutostart) {
+        chkAutostart.checked = true;
+        chkAutostart.disabled = true;
+      }
+    } else if (isActive) {
       tip.innerHTML = '● <strong>已成功注册开机自启动</strong>，启动后将自动激活各节点保存的温控设定';
       tip.style.borderColor = 'rgba(52, 199, 89, 0.4)';
     } else {

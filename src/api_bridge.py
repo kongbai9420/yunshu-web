@@ -62,7 +62,12 @@ def update_registry_autostart(enable: bool):
         logger.error(f"Error updating registry autostart: {e}")
         return False, f"配置开机自启失败: {str(e)}"
 
+def is_in_docker():
+    return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
+
 def check_system_autostart():
+    if is_in_docker():
+        return True, "Docker 容器模式"
     if sys.platform == "win32" and winreg:
         return check_registry_autostart()
     elif sys.platform == "darwin":
@@ -71,6 +76,8 @@ def check_system_autostart():
     return False, ""
 
 def update_system_autostart(enable: bool):
+    if is_in_docker():
+        return True, "Docker 模式下开机自启由容器运行参数 (restart: unless-stopped) 全自动托管"
     if sys.platform == "win32" and winreg:
         return update_registry_autostart(enable)
     elif sys.platform == "darwin":
@@ -129,6 +136,7 @@ class APIBridge:
             snap = self._ipmi_core.get_status_snapshot()
             is_reg_on, _ = check_system_autostart()
             snap["autostart_active"] = is_reg_on
+            snap["is_docker"] = is_in_docker()
 
             # Append System Servers (SSH) Data
             system_servers_data = []
