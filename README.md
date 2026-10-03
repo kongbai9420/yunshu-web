@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://hub.docker.com/r/kongbai9420/yunshu-web"><img src="https://img.shields.io/docker/pulls/kongbai9420/yunshu-web?style=flat-square&logo=docker" alt="Docker Pulls"></a>
-  <a href="https://hub.docker.com/r/kongbai9420/yunshu-web"><img src="https://img.shields.io/docker/v/kongbai9420/yunshu-web?style=flat-square&logo=docker" alt="Docker Image Version"></a>
-  <img src="https://img.shields.io/badge/Release-v3.6.0--beta.1-0A84FF?style=flat-square" alt="Version">
+  <a href="https://hub.docker.com/r/kbkongbai/yunshu-web"><img src="https://img.shields.io/docker/pulls/kbkongbai/yunshu-web?style=flat-square&logo=docker" alt="Docker Pulls"></a>
+  <a href="https://hub.docker.com/r/kbkongbai/yunshu-web"><img src="https://img.shields.io/docker/v/kbkongbai/yunshu-web?style=flat-square&logo=docker" alt="Docker Image Version"></a>
+  <img src="https://img.shields.io/badge/Release-v3.6.0--beta.2-0A84FF?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python" alt="Python">
   <img src="https://img.shields.io/badge/UI-Apple%20HIG%20Liquid%20Glass-purple?style=flat-square" alt="Design">
   <img src="https://img.shields.io/badge/Arch-amd64%20%7C%20arm64-success?style=flat-square" alt="Architecture">
@@ -173,7 +173,7 @@ docker run -d \
   -v /opt/yunshu/config.ini:/app/config.ini \
   -v /opt/yunshu/data:/app/data \
   -v /opt/yunshu/logs:/app/logs \
-  kongbai9420/yunshu-web:latest
+  kbkongbai/yunshu-web:latest
 ```
 
 > **网络模式建议**：
@@ -191,7 +191,7 @@ version: '3.8'
 
 services:
   yunshu-web:
-    image: kongbai9420/yunshu-web:latest
+    image: kbkongbai/yunshu-web:latest
     container_name: yunshu-web
     restart: unless-stopped
     # 推荐 host 网络模式，保证与带外 BMC / IPMI 通信零 NAT 延迟
@@ -325,7 +325,7 @@ session_timeout_hours = 72
 
 本项目通过 GitHub Actions 实现了与 Docker Hub 的全自动流水线同步：
 * 支持 **`linux/amd64`** 和 **`linux/arm64`** 双主流架构；
-* 每当代码打上 Release / Tag（如 `v3.6.0-beta.1`）时，GitHub Actions 会自动编译多架构镜像并同步推送到 `kongbai9420/yunshu-web:latest` 及对应版本标签中。
+* 每当代码打上 Release / Tag（如 `v3.6.0-beta.2`）时，GitHub Actions 会自动编译多架构镜像并同步推送到 `kbkongbai/yunshu-web:latest` 及对应版本标签中。
 
 ---
 
