@@ -3733,7 +3733,7 @@ function initServerClusterManagement() {
     const serialEl = document.getElementById('srvFormSerial');
     if (serialEl) serialEl.value = '';
     document.getElementById('srvFormIp').value = '192.168.1.1';
-    document.getElementById('srvFormUser').value = 'root';
+    document.getElementById('srvFormUser').value = '';
     document.getElementById('srvFormPassword').value = '';
     openHardwareNodeModal();
   });
@@ -3799,11 +3799,15 @@ function initServerClusterManagement() {
     btnAutoProbeOs.addEventListener('click', async () => {
       const host = document.getElementById('sysSrvFormHost').value.trim();
       const port = document.getElementById('sysSrvFormPort').value.trim() || 22;
-      const user = document.getElementById('sysSrvFormUser').value.trim() || 'root';
+      const user = document.getElementById('sysSrvFormUser').value.trim();
       const password = document.getElementById('sysSrvFormPassword').value;
 
       if (!host) {
         showToast('请先输入 SSH 主机 IP / 域名', 'error');
+        return;
+      }
+      if (!user) {
+        showToast('请先输入 SSH 登录账号', 'error');
         return;
       }
 
@@ -3864,7 +3868,7 @@ function initServerClusterManagement() {
       document.getElementById('sysSrvFormName').value = '';
       document.getElementById('sysSrvFormHost').value = '192.168.1.100';
       document.getElementById('sysSrvFormPort').value = '22';
-      document.getElementById('sysSrvFormUser').value = 'root';
+      document.getElementById('sysSrvFormUser').value = '';
       document.getElementById('sysSrvFormPassword').value = '';
       if (document.getElementById('sysSrvFormOsName')) {
         document.getElementById('sysSrvFormOsName').value = '';
@@ -3896,13 +3900,17 @@ function initServerClusterManagement() {
     const name = document.getElementById('sysSrvFormName').value.trim();
     const host = document.getElementById('sysSrvFormHost').value.trim();
     const port = parseInt(document.getElementById('sysSrvFormPort').value || 22, 10);
-    const username = document.getElementById('sysSrvFormUser').value.trim() || 'root';
+    const username = document.getElementById('sysSrvFormUser').value.trim();
     const password = document.getElementById('sysSrvFormPassword').value;
     const node_id = document.getElementById('sysSrvFormNodeSelect').value;
     const os_name = document.getElementById('sysSrvFormOsName')?.value?.trim() || '';
 
     if (!host) {
       showToast('请输入有效的主机 IP 地址', 'error');
+      return;
+    }
+    if (!username) {
+      showToast('请输入 SSH 登录账号', 'error');
       return;
     }
 
@@ -3942,11 +3950,15 @@ function initServerClusterManagement() {
     const model = document.getElementById('srvFormModel').value;
     const serial = document.getElementById('srvFormSerial')?.value || '';
     const ip = document.getElementById('srvFormIp').value;
-    const user = document.getElementById('srvFormUser').value;
+    const user = document.getElementById('srvFormUser').value.trim();
     const password = document.getElementById('srvFormPassword').value;
 
     if (!ip.trim()) {
       showToast('请输入有效的 BMC / iDRAC IP 地址', 'error');
+      return;
+    }
+    if (!user) {
+      showToast('请输入 IPMI 用户名', 'error');
       return;
     }
 
@@ -4251,7 +4263,7 @@ window.editSystemServerModal = function(sysId) {
   document.getElementById('sysSrvFormName').value = sys.name || '';
   document.getElementById('sysSrvFormHost').value = sys.host || '';
   document.getElementById('sysSrvFormPort').value = sys.port || 22;
-  document.getElementById('sysSrvFormUser').value = sys.username || 'root';
+  document.getElementById('sysSrvFormUser').value = (sys.username !== undefined && sys.username !== null) ? sys.username : '';
   document.getElementById('sysSrvFormPassword').value = sys.password || '';
   if (document.getElementById('sysSrvFormOsName')) {
     document.getElementById('sysSrvFormOsName').value = sys.os_name || '';
