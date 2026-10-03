@@ -311,6 +311,8 @@ class APIBridge:
                     return {"success": True, "os_name": "Ubuntu 22.04 LTS", "message": "已识别: Ubuntu 22.04.4 LTS"}
 
             import paramiko
+            from ssh_probe import enable_legacy_ssh_algorithms
+            enable_legacy_ssh_algorithms()
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(
