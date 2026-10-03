@@ -1065,12 +1065,43 @@ body.theme-dark .seg-btn:hover {
   box-shadow: 0 2px 6px rgba(255, 59, 48, 0.35);
 }
 
-/* Row 模式下电源竖列胶囊尺寸与间距调整 */
+/* Compact Grid 下，如果将 node-power-column-bar 放在纵向 flex 里，让它横向排列 4 颗胶囊 */
+.probe-cards-grid.compact-grid .node-power-column-bar {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 6px;
+  width: 100%;
+}
+.probe-cards-grid.compact-grid .node-power-column-bar .pwr-col-capsule {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 3px 2px;
+}
+
+/* Row 模式下电源竖列胶囊尺寸与间距调整：位于左侧节点信息与中间工况指标之间，真正竖向 1 列从上到下排列 4 颗胶囊 */
 .probe-cards-grid.compact-row .node-power-column-bar {
-  flex: 0 0 auto;
-  min-width: 60px;
-  height: auto;
-  min-height: 74px;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex: 0 0 66px !important;
+  width: 66px !important;
+  min-width: 66px !important;
+  max-width: 66px !important;
+  height: 74px !important;
+  min-height: 74px !important;
+  margin: 0 2px !important;
+  padding: 3px 4px !important;
+  gap: 2.5px !important;
+}
+
+.probe-cards-grid.compact-row .node-power-column-bar .pwr-col-capsule {
+  width: 100% !important;
+  height: 15px !important;
+  padding: 0 4px !important;
+  font-size: 9px !important;
+  line-height: 15px !important;
 }
 
 /* Probe Metrics Area & Top Bar (在线/延时放置在数值UI上方，不占整体行比) */
