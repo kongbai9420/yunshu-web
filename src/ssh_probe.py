@@ -62,10 +62,10 @@ def enable_legacy_ssh_algorithms():
                     kex.append(x)
             Transport._preferred_kex = tuple(kex)
 
-        # 5. 彻底静音 paramiko 内部的底层调试与握手底噪
+        # 5. 彻底静音 paramiko 内部的底层调试与握手底噪 (包括 transport 线程异常堆栈，业务层已捕获呈现)
         for name in ("paramiko", "paramiko.transport", "paramiko.transport.sftp"):
             p_logger = logging.getLogger(name)
-            p_logger.setLevel(logging.WARNING)
+            p_logger.setLevel(logging.CRITICAL)
             p_logger.propagate = False
     except Exception as e:
         logger.debug(f"enable_legacy_ssh_algorithms error: {e}")
@@ -293,6 +293,7 @@ class SystemServerWorker:
 
         self._client: Optional[paramiko.SSHClient] = None
         self._lock = threading.Lock()
+        self._polling_lock = threading.Lock()
 
         self.last_telemetry: Dict[str, Any] = {
             "id": self.srv_id,
@@ -354,18 +355,7 @@ class SystemServerWorker:
             self.last_telemetry["last_error"] = "缺少 paramiko 库支持"
             return False
 
-        # 1. 快速 TCP 端口测活并测量延时，避免死等超时
-        alive, lat_ms = ping_liveness(self.host, self.port, timeout=1.5)
-        if not alive:
-            self._disconnect()
-            self.last_telemetry["connected"] = False
-            self.last_telemetry["latency_ms"] = None
-            self.last_telemetry["last_error"] = f"主机端口无法连通 ({self.host}:{self.port})"
-            self.last_telemetry["last_updated"] = time.strftime("%H:%M:%S")
-            return False
-
-        self.last_telemetry["latency_ms"] = lat_ms
-
+        # 1. 优先复用当前活跃的长连接会话，严禁在已连接状态下频繁探测端口，杜绝打扰嵌入式系统
         if self._client:
             try:
                 transport = self._client.get_transport()
@@ -375,9 +365,11 @@ class SystemServerWorker:
                 pass
             self._disconnect()
 
-        # 针对 Dropbear 或嵌入式 SSH 重试策略：banner 读取超时或瞬态 EOF 时重试一次
+        # 2. 建立新 SSH 连接 (针对 Dropbear / OpenWrt 嵌入式设备加入 Banner 延迟与首包防抖重试)
         max_attempts = 2
-        for attempt in range(1, max_attempts + 1):
+        last_exc = None
+        for attempt in range(max_attempts):
+            t0 = time.time()
             try:
                 client = paramiko.SSHClient()
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -386,25 +378,34 @@ class SystemServerWorker:
                     port=self.port,
                     username=self.username,
                     password=self.password if self.password else None,
-                    timeout=5.0,
-                    banner_timeout=10.0,
-                    auth_timeout=8.0,
+                    timeout=8.0,
+                    banner_timeout=15.0,
+                    auth_timeout=10.0,
                     allow_agent=False,
                     look_for_keys=False
                 )
                 self._client = client
+                self.last_telemetry["latency_ms"] = max(1, int((time.time() - t0) * 1000))
                 return True
             except Exception as e:
                 self._disconnect()
-                err_str = str(e)
-                # 若为首次尝试且发生 banner 读取失败/协议中断，轻微间隔 0.3s 后重试一次
-                if attempt < max_attempts and ("banner" in err_str.lower() or "eof" in err_str.lower()):
-                    time.sleep(0.3)
+                last_exc = e
+                err_text = str(e).lower()
+                # Dropbear 等微型 SSH 服务端对瞬时握手或并发较敏感，发生 Banner 读取中断时避让 0.5s 后重试
+                if ("banner" in err_text or "eof" in err_text or isinstance(e, EOFError)) and attempt == 0:
+                    time.sleep(0.5)
                     continue
-                self.last_telemetry["connected"] = False
-                self.last_telemetry["last_error"] = "SSH 握手协议读取中断 (Banner EOF)" if "banner" in err_str.lower() else err_str
-                self.last_telemetry["last_updated"] = time.strftime("%H:%M:%S")
-                return False
+                break
+
+        self._disconnect()
+        self.last_telemetry["connected"] = False
+        self.last_telemetry["latency_ms"] = None
+        err_msg = str(last_exc) if last_exc else "连接失败"
+        if "banner" in err_msg.lower() or "eoferror" in err_msg.lower():
+            err_msg = "SSH 协议 Banner 响应异常 (请检查目标端口或并发限制)"
+        self.last_telemetry["last_error"] = err_msg
+        self.last_telemetry["last_updated"] = time.strftime("%H:%M:%S")
+        return False
 
     def _detect_os_if_needed(self):
         """首次获取时尝试获取一次服务器操作系统，成功后持久化保存，后续不再探测"""
@@ -457,17 +458,27 @@ class SystemServerWorker:
         if not self.enabled:
             return self.last_telemetry
 
-        # If in demo mode simulation or unconnectable local fallback
+        # 杜绝并发重叠轮询同一个 worker，防止线程堆积与套接字踩踏
+        if not self._polling_lock.acquire(blocking=False):
+            return self.last_telemetry
+
+        try:
+            return self._do_poll()
+        finally:
+            self._polling_lock.release()
+
+    def _do_poll(self) -> Dict[str, Any]:
         success = self._connect()
         if not success or not self._client:
-            # Let caller handle or simulate if demo mode
             self.last_telemetry["connected"] = False
             return self.last_telemetry
 
         try:
             self._detect_os_if_needed()
-            stdin, stdout, stderr = self._client.exec_command(LINUX_PROBE_SCRIPT.strip(), timeout=3.5)
+            t0 = time.time()
+            stdin, stdout, stderr = self._client.exec_command(LINUX_PROBE_SCRIPT.strip(), timeout=4.0)
             out_str = stdout.read().decode("utf-8", errors="replace").strip()
+            exec_lat = max(1, int((time.time() - t0) * 1000))
             if out_str:
                 for line in reversed(out_str.split("\n")):
                     line = line.strip()
@@ -476,6 +487,7 @@ class SystemServerWorker:
                         with self._lock:
                             self.last_telemetry.update(parsed)
                             self.last_telemetry["connected"] = True
+                            self.last_telemetry["latency_ms"] = exec_lat
                             self.last_telemetry["last_error"] = ""
                             self.last_telemetry["os_name"] = self.os_name
                             self.last_telemetry["last_updated"] = time.strftime("%H:%M:%S")
