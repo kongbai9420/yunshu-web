@@ -1731,15 +1731,7 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                     <div style="display:flex; align-items:center; gap:4px;">
                       <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
                     </div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:6px;">
-                      <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" title="${node.name}">${node.name}</span>
-                      <div class="node-power-capsules" onclick="event.stopPropagation();">
-                        <button type="button" class="pwr-capsule-btn pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">开机</button>
-                        <button type="button" class="pwr-capsule-btn pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">关机</button>
-                        <button type="button" class="pwr-capsule-btn pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">复位</button>
-                        <button type="button" class="pwr-capsule-btn pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">断电</button>
-                      </div>
-                    </div>
+                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                   </div>
                   <div class="probe-model-ip probe-srv-model-ip">
                     <div style="display:flex; align-items:center; gap:6px;">
@@ -1750,6 +1742,22 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <!-- Column Power Capsule Bar (在名字/基本信息与工况指标之间，从上到下竖向排列 4 个电源胶囊) -->
+            <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
+              <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
+                <span>🟢</span><span>开机</span>
+              </button>
+              <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
+                <span>🟡</span><span>关机</span>
+              </button>
+              <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
+                <span>🔄</span><span>复位</span>
+              </button>
+              <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
+                <span>🛑</span><span>断电</span>
+              </button>
             </div>
 
             <!-- Metrics Area with Status Pill placed ON TOP of numerical UI (不在占用整体行比) -->
@@ -1870,15 +1878,7 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                   <div style="display:flex; align-items:center; gap:4px;">
                     <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
                   </div>
-                  <div style="display:flex; align-items:center; justify-content:space-between; width:100%; gap:6px;">
-                    <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" title="${node.name}">${node.name}</span>
-                    <div class="node-power-capsules" onclick="event.stopPropagation();">
-                      <button type="button" class="pwr-capsule-btn pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">开机</button>
-                      <button type="button" class="pwr-capsule-btn pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">关机</button>
-                      <button type="button" class="pwr-capsule-btn pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">复位</button>
-                      <button type="button" class="pwr-capsule-btn pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">断电</button>
-                    </div>
-                  </div>
+                  <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                 </div>
                 <div class="probe-model-ip probe-srv-model-ip">
                   <div style="display:flex; align-items:center; gap:6px;">
@@ -1889,6 +1889,22 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Column Power Capsule Bar (在名字/基本信息与工况指标之间，从上到下竖向排列 4 个电源胶囊) -->
+          <div class="node-power-column-bar" onclick="event.stopPropagation();" title="带外电源快捷控制">
+            <button type="button" class="pwr-col-capsule pwr-on" onclick="quickPowerControl('${node.id}', 'on', '远程开机', false)" title="远程开机 (Power On)">
+              <span>🟢</span><span>开机</span>
+            </button>
+            <button type="button" class="pwr-col-capsule pwr-soft" onclick="quickPowerControl('${node.id}', 'soft', '正常关机', true)" title="正常软关机 (ACPI Soft Shutdown)">
+              <span>🟡</span><span>关机</span>
+            </button>
+            <button type="button" class="pwr-col-capsule pwr-reset" onclick="quickPowerControl('${node.id}', 'reset', '硬件复位', true)" title="硬复位重启 (Chassis Reset)">
+              <span>🔄</span><span>复位</span>
+            </button>
+            <button type="button" class="pwr-col-capsule pwr-off" onclick="quickPowerControl('${node.id}', 'off', '强制断电', true)" title="强制断电 (Power Off)">
+              <span>🛑</span><span>断电</span>
+            </button>
           </div>
 
           <!-- Metrics Area with Status Pill placed ON TOP of numerical UI (不在占用整体行比) -->
