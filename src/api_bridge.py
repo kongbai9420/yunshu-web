@@ -401,16 +401,32 @@ class APIBridge:
             enable_legacy_ssh_algorithms()
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(
-                hostname=host.strip(),
-                port=int(port or 22),
-                username=user.strip(),
-                password=password or None,
-                timeout=5.0,
-                banner_timeout=5.0,
-                look_for_keys=False,
-                allow_agent=False
-            )
+            connected = False
+            last_err = None
+            for attempt in range(2):
+                try:
+                    client.connect(
+                        hostname=host.strip(),
+                        port=int(port or 22),
+                        username=user.strip(),
+                        password=password or None,
+                        timeout=8.0,
+                        banner_timeout=15.0,
+                        auth_timeout=10.0,
+                        look_for_keys=False,
+                        allow_agent=False
+                    )
+                    connected = True
+                    break
+                except Exception as e:
+                    last_err = e
+                    if ("banner" in str(e).lower() or isinstance(e, EOFError)) and attempt == 0:
+                        time.sleep(0.5)
+                        continue
+                    break
+
+            if not connected:
+                return {"success": False, "error": str(last_err), "message": f"连接 SSH 失败: {last_err}"}
             cmd = "cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | head -1 | cut -d= -f2 | tr -d '\"' || cat /etc/redhat-release 2>/dev/null || uname -s"
             stdin, stdout, stderr = client.exec_command(cmd, timeout=3.0)
             res = stdout.read().decode("utf-8", errors="replace").strip()

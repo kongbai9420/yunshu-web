@@ -43,23 +43,28 @@ class SmartLogFilter(logging.Filter):
     ]
 
     def filter(self, record: logging.LogRecord) -> bool:
-        # 1. 任何警告、错误及严重故障，100% 绝对保留
+        logger_name = (record.name or "").lower()
+        msg = (record.getMessage() or "").lower()
+
+        # 1. 过滤 paramiko 底层内部传输线程捕获的 banner/eof 握手原始异常栈（应用层已有防抖重试与卡片错误提示，避免底噪堆栈刷屏）
+        if "paramiko" in logger_name and ("banner" in msg or "eof" in msg or "readline" in msg):
+            return False
+
+        # 2. 任何警告、错误及严重故障，100% 绝对保留
         if record.levelno >= logging.WARNING:
             return True
 
-        # 2. 静音纯噪音第三方库的 INFO / DEBUG
-        logger_name = (record.name or "").lower()
+        # 3. 静音纯噪音第三方库的 INFO / DEBUG
         for noisy in self.NOISY_LOGGERS:
             if logger_name == noisy or logger_name.startswith(noisy + "."):
                 return False
 
-        # 3. 过滤无报错周期性轮询的重复底噪消息
-        msg = (record.getMessage() or "").lower()
+        # 4. 过滤无报错周期性轮询的重复底噪消息
         for kw in self.NOISY_KEYWORDS:
             if kw in msg:
                 return False
 
-        # 4. 其余重要生命周期与操作日志保留
+        # 5. 其余重要生命周期与操作日志保留
         return True
 
 
