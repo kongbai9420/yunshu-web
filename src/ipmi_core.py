@@ -187,7 +187,19 @@ class IPMICore:
         return self.demo_mode
 
     def _locate_ipmitool(self):
-        tool_names = ["ipmitool", "ipmitool.exe"]
+        # 1. 在非 Windows 系统（Linux / Docker / macOS），优先查找系统环境变量及标准路径中的原生 ipmitool
+        if sys.platform != "win32":
+            import shutil
+            sys_tool = shutil.which("ipmitool")
+            if sys_tool and os.path.exists(sys_tool):
+                return sys_tool
+            for p in ["/usr/bin/ipmitool", "/usr/local/bin/ipmitool", "/opt/homebrew/bin/ipmitool"]:
+                if os.path.exists(p):
+                    return p
+            return "ipmitool"
+
+        # 2. Windows 平台：查找打包资源或附带的 Cygwin ipmitool.exe
+        tool_names = ["ipmitool.exe", "ipmitool"]
         if hasattr(sys, "_MEIPASS"):
             for t in tool_names:
                 for sub in ["assets", ""]:
@@ -197,24 +209,16 @@ class IPMICore:
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
-            os.path.join(base_dir, "assets", "ipmitool"),
             os.path.join(base_dir, "assets", "ipmitool.exe"),
-            os.path.join(base_dir, "..", "assets", "ipmitool"),
             os.path.join(base_dir, "..", "assets", "ipmitool.exe"),
-            os.path.join(base_dir, "ipmitool"),
             os.path.join(base_dir, "ipmitool.exe"),
-            "/opt/homebrew/bin/ipmitool",  # macOS Apple Silicon (M1/M2/M3/M4)
-            "/usr/local/bin/ipmitool",     # macOS Intel / Homebrew
-            "/usr/bin/ipmitool",
             os.path.join(os.getcwd(), "src", "assets", "ipmitool.exe"),
             os.path.join(os.getcwd(), "assets", "ipmitool.exe"),
-            os.path.join(os.getcwd(), "Dell_EMC_Fans_Controller_1.0.2（添加单风扇控制）", "ipmitool.exe"),
-            os.path.join(os.getcwd(), "Dell_EMC_Fans_Controller_1.0.2（添加单风扇控制）", "Dell风扇调速-自动温控版v2.2", "Dell", "SysMgt", "bmc", "ipmitool.exe")
         ]
         for c in candidates:
             if os.path.exists(c):
                 return os.path.abspath(c)
-        return "ipmitool" if sys.platform != "win32" else "ipmitool.exe"
+        return "ipmitool.exe"
 
     def _ensure_path_env(self):
         if os.path.exists(self.ipmitool_path):
