@@ -13,15 +13,96 @@ import logging
 
 logger = logging.getLogger("APIBridge")
 
-def is_in_docker():
-    return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
+REG_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+APP_REG_NAME = "云枢"
+
+def get_current_exe_path():
+    if getattr(sys, "frozen", False):
+        return sys.executable
+    exe = os.path.abspath(os.path.join(os.getcwd(), "云枢.exe"))
+    if os.path.exists(exe):
+        return exe
+    exe2 = os.path.abspath(os.path.join(os.getcwd(), "dist", "云枢.exe"))
+    if os.path.exists(exe2):
+        return exe2
+    return sys.executable
+
+def check_registry_autostart():
+    if winreg is None:
+        return False, ""
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_READ)
+        val, _ = winreg.QueryValueEx(key, APP_REG_NAME)
+        winreg.CloseKey(key)
+        return True, val
+    except FileNotFoundError:
+        return False, ""
+    except Exception as e:
+        return False, str(e)
+
+def update_registry_autostart(enable: bool):
+    if winreg is None:
+        return False, "当前平台不支持 Windows 注册表开机自启"
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_SET_VALUE | winreg.KEY_WRITE)
+        if enable:
+            target_path = get_current_exe_path()
+            cmd_val = f'"{target_path}"'
+            winreg.SetValueEx(key, APP_REG_NAME, 0, winreg.REG_SZ, cmd_val)
+            winreg.CloseKey(key)
+            return True, f"开机自启动已启用: {cmd_val}"
+        else:
+            try:
+                winreg.DeleteValue(key, APP_REG_NAME)
+            except FileNotFoundError:
+                pass
+            winreg.CloseKey(key)
+            return True, "开机自启动已关闭"
+    except Exception as e:
+        logger.error(f"Error updating registry autostart: {e}")
+        return False, f"配置开机自启失败: {str(e)}"
 
 def check_system_autostart():
-    # Web 控制中心架构下，开机自启由 Docker 容器编排 (restart: unless-stopped) 或宿主机服务托管
-    return True, "容器/服务托管模式"
+    if sys.platform == "win32" and winreg:
+        return check_registry_autostart()
+    elif sys.platform == "darwin":
+        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.dell.fansense.plist")
+        return os.path.exists(plist_path), plist_path
+    return False, ""
 
 def update_system_autostart(enable: bool):
-    return True, "Web 模式下开机自启由系统服务或 Docker 编排策略托管"
+    if sys.platform == "win32" and winreg:
+        return update_registry_autostart(enable)
+    elif sys.platform == "darwin":
+        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.dell.fansense.plist")
+        try:
+            if enable:
+                exe_path = get_current_exe_path()
+                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.dell.fansense</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{exe_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>"""
+                os.makedirs(os.path.dirname(plist_path), exist_ok=True)
+                with open(plist_path, "w", encoding="utf-8") as f:
+                    f.write(plist_content)
+                return True, "已配置 macOS 登录自启动项"
+            else:
+                if os.path.exists(plist_path):
+                    os.remove(plist_path)
+                return True, "已关闭 macOS 登录自启动项"
+        except Exception as e:
+            return False, f"配置 macOS 自启失败: {e}"
+    return False, "当前平台不支持开机自启动设置"
 
 class APIBridge:
     def __init__(self, ipmi_core, config_mgr, ssh_probe_mgr=None, alert_engine=None, log_mgr=None):
@@ -48,7 +129,6 @@ class APIBridge:
             snap = self._ipmi_core.get_status_snapshot()
             is_reg_on, _ = check_system_autostart()
             snap["autostart_active"] = is_reg_on
-            snap["is_docker"] = is_in_docker()
 
             # Append System Servers (SSH) Data
             system_servers_data = []
@@ -149,7 +229,9 @@ class APIBridge:
                         "disk_used_gb": disk_u,
                         "disk_total_gb": disk_tot,
                         "uptime_sec": 86400 * 24 + 3600 * 5,
-                        "hostname": "pve-cluster-node1" if is_bound else "app-server-standalone"
+                        "hostname": "pve-cluster-node1" if is_bound else "app-server-standalone",
+                        "username": s.get("username", ""),
+                        "password": s.get("password", "")
                     }
                     final_system_servers.append(simulated_entry)
                 else:
@@ -158,6 +240,8 @@ class APIBridge:
                         entry = dict(real_tel)
                         entry["node_id"] = s.get("node_id", "")
                         entry["name"] = s.get("name", entry.get("name", ""))
+                        entry["username"] = s.get("username", "")
+                        entry["password"] = s.get("password", "")
                         entry["os_name"] = configured_os or entry.get("os_name", "Linux OS")
                         entry["latency_ms"] = real_tel.get("latency_ms", 10)
                         final_system_servers.append(entry)
@@ -173,6 +257,8 @@ class APIBridge:
                             "name": s.get("name"),
                             "host": s.get("host"),
                             "port": s.get("port", 22),
+                            "username": s.get("username", ""),
+                            "password": s.get("password", ""),
                             "node_id": s.get("node_id", ""),
                             "os_name": configured_os or (real_tel.get("os_name") if real_tel else "") or "Linux OS",
                             "connected": False,
@@ -311,8 +397,6 @@ class APIBridge:
                     return {"success": True, "os_name": "Ubuntu 22.04 LTS", "message": "已识别: Ubuntu 22.04.4 LTS"}
 
             import paramiko
-            from ssh_probe import enable_legacy_ssh_algorithms
-            enable_legacy_ssh_algorithms()
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(
@@ -451,19 +535,6 @@ class APIBridge:
             return {"success": success, "message": msg, "autostart": enable}
         except Exception as e:
             return {"success": False, "error": str(e)}
-
-    def control_power(self, action: str, srv_id=None):
-        try:
-            target_srv = None
-            if srv_id:
-                for s in self._config_mgr.get_servers():
-                    if s.get("id") == srv_id:
-                        target_srv = s
-                        break
-            success, msg, pwr_state = self._ipmi_core.control_chassis_power(action, server_override=target_srv)
-            return {"success": success, "message": msg, "power_state": pwr_state}
-        except Exception as e:
-            return {"success": False, "message": str(e), "error": str(e)}
 
     def set_fan_mode(self, mode, srv_id=None):
         try:
@@ -656,6 +727,17 @@ class APIBridge:
             return {"success": True, "url": url}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def control_server_power(self, srv_id, action):
+        """对指定硬件节点执行 IPMI 电源控制 (chassis power on/off/soft/reset/cycle)"""
+        try:
+            srv = next((s for s in self._config_mgr.get_servers() if s.get("id") == srv_id), None)
+            if not srv:
+                return {"success": False, "error": f"未找到 ID 为 [{srv_id}] 的硬件节点"}
+            return self._ipmi_core.control_chassis_power(action, server_override=srv)
+        except Exception as e:
+            logger.error(f"control_server_power error: {e}")
+            return {"success": False, "error": f"电源控制执行异常: {str(e)}"}
 
     def minimize_window(self):
         if self._window:

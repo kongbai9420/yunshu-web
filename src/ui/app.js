@@ -2522,7 +2522,7 @@ window.openServerDetailModal = function(sysId) {
   const latency = isConn ? (srv.latency_ms ? `${srv.latency_ms} ms` : '<10 ms') : '断开';
 
   document.getElementById('srvModalTitle').textContent = `${srv.name} · 系统运行详情`;
-  document.getElementById('srvModalSubtitle').textContent = `SSH 探针采集主机: ${srv.username || 'root'}@${srv.host}:${srv.port || 22} · 网络延时: ${latency}`;
+  document.getElementById('srvModalSubtitle').textContent = `SSH 探针采集主机: ${srv.username || '未配置账号'}@${srv.host}:${srv.port || 22} · 网络延时: ${latency}`;
   
   document.getElementById('srvModalCpu').textContent = `${srv.cpu_pct !== undefined ? srv.cpu_pct : 0}%`;
   document.getElementById('srvModalCpuCores').textContent = `${cores} 逻辑处理器核心`;
@@ -2567,7 +2567,7 @@ window.openHardwareNodeDetailModal = function(srvId) {
   const placeholder = isOffline ? '--' : '<span class="loading-placeholder">获取中...</span>';
 
   document.getElementById('nodeDetailModalTitle').textContent = `${srv.name} · 硬件运行详情`;
-  document.getElementById('nodeDetailModalSubtitle').textContent = `带外 BMC 通道: ${srv.user || 'root'}@${srv.ip} · 品牌: ${(srv.brand || 'Dell').toUpperCase()}`;
+  document.getElementById('nodeDetailModalSubtitle').textContent = `带外 BMC 通道: ${srv.user || '未配置账号'}@${srv.ip} · 品牌: ${(srv.brand || 'Dell').toUpperCase()}`;
 
   document.getElementById('nodeModalCpu').innerHTML = (isConn && tel.max_cpu_temp !== null && tel.max_cpu_temp !== undefined) ? `${tel.max_cpu_temp} °C` : placeholder;
   document.getElementById('nodeModalInlet').innerHTML = (isConn && tel.inlet_temp !== null && tel.inlet_temp !== undefined) ? `${tel.inlet_temp} °C` : placeholder;
@@ -4027,11 +4027,11 @@ function renderServerFormSubsystems() {
         </div>
         <div>
           <label style="font-size:10.5px; color:var(--text-tertiary); display:block; margin-bottom:2px;">SSH 账户</label>
-          <input type="text" class="apple-input" style="font-size:11.5px; padding:4px 8px;" value="${sub.username || 'root'}" placeholder="root" onchange="updateSubsystemField(${idx}, 'username', this.value)">
+          <input type="text" class="apple-input" style="font-size:11.5px; padding:4px 8px;" value="${sub.username || ''}" placeholder="例如: root / ubuntu / admin" autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" onchange="updateSubsystemField(${idx}, 'username', this.value)">
         </div>
         <div>
           <label style="font-size:10.5px; color:var(--text-tertiary); display:block; margin-bottom:2px;">SSH 密码</label>
-          <input type="password" class="apple-input" style="font-size:11.5px; padding:4px 8px;" value="${sub.password || ''}" placeholder="留空为无密码" onchange="updateSubsystemField(${idx}, 'password', this.value)">
+          <input type="password" class="apple-input" style="font-size:11.5px; padding:4px 8px;" value="${sub.password || ''}" placeholder="留空为无密码" autocomplete="new-password" data-lpignore="true" onchange="updateSubsystemField(${idx}, 'password', this.value)">
         </div>
       </div>
       <div id="subRowStatus_${idx}" style="font-size:11px; margin-top:5px; display:none;"></div>
@@ -4338,8 +4338,8 @@ window.editServerModal = function(srvId) {
   const serialEl = document.getElementById('srvFormSerial');
   if (serialEl) serialEl.value = srv.serial || '';
   document.getElementById('srvFormIp').value = srv.ip;
-  document.getElementById('srvFormUser').value = srv.user;
-  document.getElementById('srvFormPassword').value = srv.password;
+  document.getElementById('srvFormUser').value = (srv.user !== undefined && srv.user !== null) ? srv.user : '';
+  document.getElementById('srvFormPassword').value = (srv.password !== undefined && srv.password !== null) ? srv.password : '';
 
   openHardwareNodeModal();
 };

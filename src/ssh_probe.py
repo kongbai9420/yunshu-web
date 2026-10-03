@@ -18,47 +18,35 @@ except ImportError:
 
 logger = logging.getLogger("ssh_probe")
 
-def enable_legacy_ssh_algorithms():
+def _enable_legacy_ssh_algorithms():
     """
-    Paramiko 3.0+ / 5.0+ 默认移除了对仅支持 ssh-rsa (SHA-1) 密钥签名的老旧设备与精简环境
-    （如 OpenWrt、Dropbear SSH、iDRAC/BMC 嵌入式 Linux、老旧发行版等）的支持。
-    此处自动在底层补全注册 ssh-rsa 支持并恢复 SHA-1 校验器，确保 100% 广泛兼容。
+    Paramiko 3.0+ 默认禁用了 ssh-rsa 与部分旧版 Diffie-Hellman 密钥交换算法。
+    为了无缝兼容各类精简版嵌入式环境（如 OpenWrt/路由器/BMC 上的 Dropbear SSH、老旧 Linux 发行版及交换机），
+    在此主动补充注册 ssh-rsa、ssh-dss 算法与 legacy kex。
     """
     if not paramiko:
         return
     try:
-        from cryptography.hazmat.primitives import hashes
         from paramiko.transport import Transport
-        from paramiko.rsakey import RSAKey
+        keys = list(Transport._preferred_keys)
+        for k in ('ssh-rsa', 'ssh-dss'):
+            if k not in keys:
+                keys.append(k)
+        Transport._preferred_keys = tuple(keys)
 
-        # 1. 恢复 RSAKey 支持 ssh-rsa 签名哈希 (SHA1)
-        if hasattr(RSAKey, 'HASHES'):
-            RSAKey.HASHES['ssh-rsa'] = hashes.SHA1
-            RSAKey.HASHES['ssh-rsa-cert-v01@openssh.com'] = hashes.SHA1
+        kex = list(Transport._preferred_kex)
+        for x in ('diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1', 'diffie-hellman-group-exchange-sha1'):
+            if x not in kex:
+                kex.append(x)
+        Transport._preferred_kex = tuple(kex)
 
-        # 2. 将 ssh-rsa 注入 Transport._key_info 映射字典
-        if hasattr(Transport, '_key_info'):
-            Transport._key_info['ssh-rsa'] = RSAKey
-            Transport._key_info['ssh-rsa-cert-v01@openssh.com'] = RSAKey
-
-        # 3. 补充 Transport._preferred_keys 与 _preferred_pubkeys
-        for attr in ('_preferred_keys', '_preferred_pubkeys'):
-            if hasattr(Transport, attr):
-                cur = list(getattr(Transport, attr))
-                for k in ('ssh-rsa', 'ssh-rsa-cert-v01@openssh.com'):
-                    if k not in cur:
-                        cur.append(k)
-                setattr(Transport, attr, tuple(cur))
-
-        # 4. 彻底静音 paramiko 内部的详细底层握手与通道调试日志，避免底噪
-        for name in ("paramiko", "paramiko.transport", "paramiko.transport.sftp"):
-            p_logger = logging.getLogger(name)
-            p_logger.setLevel(logging.WARNING)
-            p_logger.propagate = False
+        # 静音 paramiko 内部的底层调试信息，避免轮询底噪刷屏
+        logging.getLogger("paramiko").setLevel(logging.WARNING)
+        logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
     except Exception as e:
         logger.debug(f"enable_legacy_ssh_algorithms error: {e}")
 
-enable_legacy_ssh_algorithms()
+_enable_legacy_ssh_algorithms()
 
 LINUX_PROBE_SCRIPT = r"""
 if command -v python3 >/dev/null 2>&1; then
@@ -273,7 +261,7 @@ class SystemServerWorker:
         self.name = srv_info.get("name", "Linux 服务器")
         self.host = srv_info.get("host", "127.0.0.1")
         self.port = int(srv_info.get("port", 22))
-        self.username = srv_info.get("username", "root")
+        self.username = srv_info.get("username", "") or "root"
         self.password = srv_info.get("password", "")
         self.node_id = srv_info.get("node_id", "")  # Optional bound hardware node
         self.os_name = srv_info.get("os_name", "")  # Persistent OS name or custom
