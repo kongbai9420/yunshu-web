@@ -13,103 +13,15 @@ import logging
 
 logger = logging.getLogger("APIBridge")
 
-REG_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-APP_REG_NAME = "云枢"
-
-def get_current_exe_path():
-    if getattr(sys, "frozen", False):
-        return sys.executable
-    exe = os.path.abspath(os.path.join(os.getcwd(), "云枢.exe"))
-    if os.path.exists(exe):
-        return exe
-    exe2 = os.path.abspath(os.path.join(os.getcwd(), "dist", "云枢.exe"))
-    if os.path.exists(exe2):
-        return exe2
-    return sys.executable
-
-def check_registry_autostart():
-    if winreg is None:
-        return False, ""
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_READ)
-        val, _ = winreg.QueryValueEx(key, APP_REG_NAME)
-        winreg.CloseKey(key)
-        return True, val
-    except FileNotFoundError:
-        return False, ""
-    except Exception as e:
-        return False, str(e)
-
-def update_registry_autostart(enable: bool):
-    if winreg is None:
-        return False, "当前平台不支持 Windows 注册表开机自启"
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_RUN_KEY, 0, winreg.KEY_SET_VALUE | winreg.KEY_WRITE)
-        if enable:
-            target_path = get_current_exe_path()
-            cmd_val = f'"{target_path}"'
-            winreg.SetValueEx(key, APP_REG_NAME, 0, winreg.REG_SZ, cmd_val)
-            winreg.CloseKey(key)
-            return True, f"开机自启动已启用: {cmd_val}"
-        else:
-            try:
-                winreg.DeleteValue(key, APP_REG_NAME)
-            except FileNotFoundError:
-                pass
-            winreg.CloseKey(key)
-            return True, "开机自启动已关闭"
-    except Exception as e:
-        logger.error(f"Error updating registry autostart: {e}")
-        return False, f"配置开机自启失败: {str(e)}"
-
 def is_in_docker():
     return os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
 
 def check_system_autostart():
-    if is_in_docker():
-        return True, "Docker 容器模式"
-    if sys.platform == "win32" and winreg:
-        return check_registry_autostart()
-    elif sys.platform == "darwin":
-        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.dell.fansense.plist")
-        return os.path.exists(plist_path), plist_path
-    return False, ""
+    # Web 控制中心架构下，开机自启由 Docker 容器编排 (restart: unless-stopped) 或宿主机服务托管
+    return True, "容器/服务托管模式"
 
 def update_system_autostart(enable: bool):
-    if is_in_docker():
-        return True, "Docker 模式下开机自启由容器运行参数 (restart: unless-stopped) 全自动托管"
-    if sys.platform == "win32" and winreg:
-        return update_registry_autostart(enable)
-    elif sys.platform == "darwin":
-        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.dell.fansense.plist")
-        try:
-            if enable:
-                exe_path = get_current_exe_path()
-                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.dell.fansense</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>{exe_path}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>"""
-                os.makedirs(os.path.dirname(plist_path), exist_ok=True)
-                with open(plist_path, "w", encoding="utf-8") as f:
-                    f.write(plist_content)
-                return True, "已配置 macOS 登录自启动项"
-            else:
-                if os.path.exists(plist_path):
-                    os.remove(plist_path)
-                return True, "已关闭 macOS 登录自启动项"
-        except Exception as e:
-            return False, f"配置 macOS 自启失败: {e}"
-    return False, "当前平台不支持开机自启动设置"
+    return True, "Web 模式下开机自启由系统服务或 Docker 编排策略托管"
 
 class APIBridge:
     def __init__(self, ipmi_core, config_mgr, ssh_probe_mgr=None, alert_engine=None, log_mgr=None):

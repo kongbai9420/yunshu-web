@@ -859,8 +859,8 @@
 
               <div class="form-row-between">
                 <div>
-                  <div class="setting-title">声音/音乐警报</div>
-                  <div class="setting-desc">超标时播放警报音频（内置高音警示或指定自定义 WAV 音乐）</div>
+                  <div class="setting-title">浏览器声音警报 (Web Audio)</div>
+                  <div class="setting-desc">超标时由当前浏览器播放 Apple 风格双频温控警报音律</div>
                 </div>
                 <label class="apple-switch">
                   <input type="checkbox" id="alertSoundEnabled" checked>
@@ -868,31 +868,10 @@
                 </label>
               </div>
 
-              <div class="form-row-between" id="rowAlertSoundType">
-                <div>
-                  <div class="setting-title">警报声音类型</div>
-                  <div class="setting-desc">选择系统内置默认警笛或导入自定义音频文件路径</div>
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <select class="apple-select" id="alertSoundType" style="width:160px;">
-                    <option value="default">系统默认警报音 (Alarm)</option>
-                    <option value="custom">自定义本地 WAV 音频</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="form-row-between" id="rowCustomSoundPath" style="display:none;">
-                <div style="flex:1; margin-right:16px;">
-                  <div class="setting-title">自定义 WAV 音频路径</div>
-                  <div class="setting-desc">支持输入本地 .wav 完整绝对路径（如 C:\Music\alarm.wav）</div>
-                  <input type="text" class="apple-input" id="alertCustomSoundPath" placeholder="C:\path\to\alert.wav" style="margin-top:6px; width:100%;">
-                </div>
-              </div>
-
               <div class="form-row-between">
                 <div>
-                  <div class="setting-title">文本朗读语音播报 (TTS)</div>
-                  <div class="setting-desc">触发告警时使用系统语音引擎清晰朗读具体的告警内容（如：“警告！CPU 温度过高已达 85度”）</div>
+                  <div class="setting-title">浏览器语音合成朗读 (Web TTS)</div>
+                  <div class="setting-desc">触发告警时由当前访问设备的浏览器直接朗读告警内容（如：“警告！CPU 温度过高已达 85度”）</div>
                 </div>
                 <label class="apple-switch">
                   <input type="checkbox" id="alertTtsEnabled" checked>
@@ -1579,25 +1558,14 @@
               </div>
             </div>
 
-            <!-- Auto-start Card -->
+            <!-- Auto-start & Persistence Card -->
             <div class="apple-card form-card max-w-card" style="margin-bottom: 20px;">
-              <h3 class="section-subtitle">自动化与系统自启</h3>
+              <h3 class="section-subtitle">自动化与策略托管</h3>
               
               <div class="switch-row">
                 <div class="switch-text">
-                  <span class="switch-title">随操作系统开机自动启动</span>
-                  <span class="switch-desc">用户登录系统时，自动在后台静默运行并恢复集群监管</span>
-                </div>
-                <label class="apple-switch">
-                  <input type="checkbox" id="chkAutoStart">
-                  <span class="switch-slider"></span>
-                </label>
-              </div>
-
-              <div class="switch-row">
-                <div class="switch-text">
-                  <span class="switch-title">启动后自动激活此前配置的温控设定</span>
-                  <span class="switch-desc">程序自启动后，自动继承并下发每台硬件节点原先保存的专属温控策略（曲线/手动/情景/原厂）</span>
+                  <span class="switch-title">Web 服务启动时自动接管并恢复各节点温控</span>
+                  <span class="switch-desc">后台守护进程与 Docker 容器启动时，全自动检索并下发每台硬件物理节点原先保存的专属温控策略（曲线/手动/情景/原厂）</span>
                 </div>
                 <label class="apple-switch">
                   <input type="checkbox" id="chkAutoStartRestoreSaved" checked>
@@ -1605,8 +1573,8 @@
                 </label>
               </div>
 
-              <div class="autostart-status-tip" id="autostartStatusTip">
-                当前自启状态: 正在检测系统注册表...
+              <div class="autostart-status-tip" id="autostartStatusTip" style="border-color: rgba(10, 132, 255, 0.4);">
+                🐳 <strong>容器与服务开机托管</strong>：在 Docker 部署中，通过配置 <code>restart: unless-stopped</code> 即可实现宿主机开机全自动静默唤醒并接管集群温控。
               </div>
             </div>
 
@@ -1619,8 +1587,12 @@
                   <span class="info-value code-font" id="cfgIpmitoolPath">正在检测...</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">配置文件位置:</span>
-                  <span class="info-value code-font">当前目录 ./config.ini (完整兼容旧版)</span>
+                  <span class="info-label">核心持久化配置:</span>
+                  <span class="info-value code-font">/app/config.ini (挂载宿主机配置文件)</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">鉴权数据库文件:</span>
+                  <span class="info-value code-font">/app/data/users.json (安全哈希持久卷)</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">软件授权模式:</span>

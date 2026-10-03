@@ -1196,7 +1196,20 @@ function applyStatusData(d) {
     const prefPoll = document.getElementById('prefSubsystemPollRate');
     if (prefPoll && document.activeElement !== prefPoll) prefPoll.value = d.subsystem_poll_sec;
   }
-  if (d.alert_history) state.alert_history = d.alert_history;
+  if (d.alert_history) {
+    const prevCount = (state.alert_history || []).length;
+    state.alert_history = d.alert_history;
+    // 如果有新的告警推送到前端，并且用户启用了声音/TTS，由浏览器发出告警
+    if (d.alert_history.length > prevCount && prevCount > 0) {
+      const latestAlert = d.alert_history[d.alert_history.length - 1];
+      if (state.alert_config?.sound_enabled !== false) {
+        playBrowserAlertSound();
+      }
+      if (state.alert_config?.tts_enabled && latestAlert) {
+        speakBrowserTTS(latestAlert.message || latestAlert.title || '服务器指标告警！');
+      }
+    }
+  }
   if (d.alert_config) state.alert_config = d.alert_config;
 
   // Update Nav Alert Badge
@@ -4193,25 +4206,74 @@ window.deleteServerItem = async function(srvId) {
   }
 };
 
+// Web Audio & Web Speech API Alert Engine for Web Console
+function playBrowserAlertSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    
+    // Apple HIG style subtle dual-tone chime (880Hz -> 1760Hz)
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, now);
+    osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(440, now);
+    osc2.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.45);
+    osc2.stop(now + 0.45);
+  } catch (e) {
+    console.warn('Web Audio error:', e);
+  }
+}
+
+function speakBrowserTTS(text) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn('Web TTS error:', e);
+  }
+}
+
 // ==========================================
 // Alert Center Tab
 // ==========================================
 function initAlertCenterTab() {
   const btnTestAudio = document.getElementById('btnTestAlertAudio');
   if (btnTestAudio) {
-    btnTestAudio.addEventListener('click', async () => {
-      const soundType = document.getElementById('alertSoundType').value;
-      const customPath = document.getElementById('alertCustomSoundPath').value;
-      showToast('正在触发告警音频试听...', 'info');
-      await callApi('test_alert_sound', soundType, customPath);
+    btnTestAudio.addEventListener('click', () => {
+      showToast('正在播放浏览器 Web Audio 警报声...', 'info');
+      playBrowserAlertSound();
     });
   }
 
   const btnTestTTS = document.getElementById('btnTestAlertTTS');
   if (btnTestTTS) {
-    btnTestTTS.addEventListener('click', async () => {
-      showToast('正在触发语音合成朗读播报...', 'info');
-      await callApi('test_alert_tts', '云枢系统告警测试！服务器硬件及系统指标运行正常。');
+    btnTestTTS.addEventListener('click', () => {
+      showToast('正在由当前浏览器播报语音...', 'info');
+      speakBrowserTTS('云枢系统告警测试！服务器硬件及系统指标运行正常。');
     });
   }
 
@@ -4278,8 +4340,6 @@ function initAlertCenterTab() {
       const cfg = {
         enabled: document.getElementById('alertGlobalEnabled').checked,
         sound_enabled: document.getElementById('alertSoundEnabled').checked,
-        sound_type: document.getElementById('alertSoundType').value,
-        custom_sound_path: document.getElementById('alertCustomSoundPath').value.trim(),
         tts_enabled: document.getElementById('alertTtsEnabled').checked,
         cooldown_sec: parseInt(document.getElementById('alertCooldownSec').value || 60, 10),
         // 外部 Webhook 消息通知
@@ -4342,11 +4402,6 @@ function renderAlertsCenter() {
   // Fill in form values
   if (cfg.enabled !== undefined) document.getElementById('alertGlobalEnabled').checked = !!cfg.enabled;
   if (cfg.sound_enabled !== undefined) document.getElementById('alertSoundEnabled').checked = !!cfg.sound_enabled;
-  if (cfg.sound_type) {
-    document.getElementById('alertSoundType').value = cfg.sound_type;
-    document.getElementById('rowCustomSoundPath').style.display = cfg.sound_type === 'custom' ? 'flex' : 'none';
-  }
-  if (cfg.custom_sound_path !== undefined) document.getElementById('alertCustomSoundPath').value = cfg.custom_sound_path;
   if (cfg.tts_enabled !== undefined) document.getElementById('alertTtsEnabled').checked = !!cfg.tts_enabled;
   if (cfg.cooldown_sec !== undefined) document.getElementById('alertCooldownSec').value = cfg.cooldown_sec;
 
@@ -4585,8 +4640,6 @@ function populatePreferencesForm() {
 }
 
 function initSettingsTab() {
-  const chkAutostart = document.getElementById('chkAutoStart');
-  const autostartTip = document.getElementById('autostartStatusTip');
   const prefRefreshRate = document.getElementById('prefRefreshRate');
   const prefDefaultView = document.getElementById('prefDefaultView');
 
@@ -4612,18 +4665,6 @@ function initSettingsTab() {
   // 日志保存期限回显
   const prefLogRet = document.getElementById('prefLogRetentionDays');
   if (prefLogRet) prefLogRet.value = state.config?.logging?.log_retention_days || 7;
-
-  chkAutostart.addEventListener('change', async (e) => {
-    const isChecked = e.target.checked;
-    const res = await callApi('set_autostart', isChecked);
-    if (res && res.success) {
-      showToast(res.message, 'success');
-      updateAutostartTipUI(isChecked);
-    } else {
-      showToast(res?.message || '开机自启更新失败', 'error');
-      chkAutostart.checked = !isChecked;
-    }
-  });
 
   document.getElementById('btnSavePreferences').addEventListener('click', async () => {
     const uiSecVal = parseInt(document.getElementById('prefUiRefreshRate')?.value || 1, 10);
@@ -4691,36 +4732,13 @@ function initSettingsTab() {
     showToast('保存成功', 'success');
   });
 
-  // Query autostart state
+  // Query system runtime info
   setTimeout(() => {
-    chkAutostart.checked = state.autostart_active;
-    updateAutostartTipUI(state.autostart_active);
     const pathEl = document.getElementById('cfgIpmitoolPath');
     if (pathEl) {
-      pathEl.textContent = state.is_docker ? 'ipmitool (Linux 容器原生高并发运行时)' : 'ipmitool (内置 Cygwin 稳定运行时)';
+      pathEl.textContent = state.is_docker ? 'ipmitool (Linux 原生 IPMI 引擎 / Docker 容器运行时)' : 'ipmitool (系统底层带外硬件引擎)';
     }
   }, 300);
-}
-
-function updateAutostartTipUI(isActive) {
-  const tip = document.getElementById('autostartStatusTip');
-  const chkAutostart = document.getElementById('chkAutoStart');
-  if (tip) {
-    if (state.is_docker) {
-      tip.innerHTML = '🐳 <strong>Docker 容器自启动已托管</strong>：开机自启由容器编排策略 (<code>restart: unless-stopped</code>) 全自动接管。容器启动后将自动下发恢复各节点的温控策略。';
-      tip.style.borderColor = 'rgba(10, 132, 255, 0.4)';
-      if (chkAutostart) {
-        chkAutostart.checked = true;
-        chkAutostart.disabled = true;
-      }
-    } else if (isActive) {
-      tip.innerHTML = '● <strong>已成功注册开机自启动</strong>，启动后将自动激活各节点保存的温控设定';
-      tip.style.borderColor = 'rgba(52, 199, 89, 0.4)';
-    } else {
-      tip.innerHTML = '○ 未启用开机自启 (绿色滑动开关轻点即生效)';
-      tip.style.borderColor = 'var(--border-subtle)';
-    }
-  }
 }
 
 // ========================================================

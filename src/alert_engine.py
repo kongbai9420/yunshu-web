@@ -360,64 +360,13 @@ class AlertEngine:
             return {"success": False, "channel": channel, "error": str(e)}
 
     def play_alert_sound(self, sound_type="default", custom_path=""):
-        try:
-            target_wav = ""
-            if sound_type == "custom" and custom_path and os.path.isfile(custom_path):
-                target_wav = custom_path
-            else:
-                if sys.platform == "win32":
-                    candidates = [
-                        r"C:\Windows\Media\Alarm01.wav",
-                        r"C:\Windows\Media\Windows Critical Stop.wav",
-                        r"C:\Windows\Media\Windows Exclamation.wav",
-                        r"C:\Windows\Media\tada.wav"
-                    ]
-                    for p in candidates:
-                        if os.path.exists(p):
-                            target_wav = p
-                            break
-                elif sys.platform == "darwin":
-                    candidates = [
-                        "/System/Library/Sounds/Sosumi.aiff",
-                        "/System/Library/Sounds/Ping.aiff",
-                        "/System/Library/Sounds/Basso.aiff"
-                    ]
-                    for p in candidates:
-                        if os.path.exists(p):
-                            target_wav = p
-                            break
-
-            if target_wav:
-                if sys.platform == "win32":
-                    import winsound
-                    winsound.PlaySound(target_wav, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                elif sys.platform == "darwin":
-                    subprocess.run(["afplay", target_wav], capture_output=True)
-            else:
-                if sys.platform == "win32":
-                    import winsound
-                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
-                else:
-                    print("\a")
-        except Exception as e:
-            logger.error(f"Failed to play alert sound: {e}")
+        # 在 Web / Docker 架构下，音频播放与 TTS 朗读全部由连接的客户端浏览器 (Web Audio & Web Speech API) 执行
+        # 后端保持无声或静默记录，避免在无声卡机房服务器或 Docker 容器内产生无效子进程调用
+        return True
 
     def speak_text(self, text: str):
-        if not text:
-            return
-        safe_text = text.replace("'", " ").replace('"', " ").replace("\n", " ").strip()
-        try:
-            if sys.platform == "win32":
-                ps_script = f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{safe_text}')"
-                subprocess.run(
-                    ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps_script],
-                    capture_output=True,
-                    timeout=10
-                )
-            elif sys.platform == "darwin":
-                subprocess.run(["say", safe_text], capture_output=True, timeout=10)
-        except Exception as e:
-            logger.error(f"TTS Speech error: {e}")
+        # Web 控制台架构下，TTS 语音播报交由连接控制台的浏览器执行
+        return True
 
     def test_alert(self, sound=True, tts=True):
         self._trigger_alert(
