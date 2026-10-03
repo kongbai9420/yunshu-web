@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  yunshu-web:
+    image: kongbai9420/yunshu-web:latest
+    container_name: yunshu-web
+    restart: unless-stopped
+    # Linux 生产环境推荐 host 模式，保证物理带外 IPMI (UDP 623) 通信零 NAT 延迟
+    network_mode: host
+    # 如在 macOS/Windows Docker Desktop 或仅使用桥接网络，请注释上方 network_mode 并启用下方 ports
+    # ports:
+    #   - "8080:8080"
+    volumes:
+      - ./config.ini:/app/config.ini
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./sdr_cache:/app/sdr_cache
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1

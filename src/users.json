@@ -1,0 +1,12 @@
+{
+  "admin": {
+    "username": "admin",
+    "display_name": "系统管理员",
+    "role": "admin",
+    "password_hash": "pbkdf2_sha256$4c83906826975d7c4f904fad8a718e0b$d8d78dfe99cd103570cc0b60f80c841f53ce492482783359af7a3b03bc1f364f",
+    "created_at": 1700000000.0,
+    "last_login": null,
+    "require_password_change": false,
+    "updated_at": 1700000000.0
+  }
+}

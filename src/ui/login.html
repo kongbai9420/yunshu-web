@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>登录 · 云枢 服务器集群温控与运维中心</title>
+  <link rel="icon" type="image/png" href="/ui/app_icon.png">
+  <style>
+    /* -------------------------------------------------------------
+       Apple HIG Design System & Liquid Glass Variables
+       ------------------------------------------------------------- */
+    :root {
+      --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
+      
+      --color-primary: #0071e3;
+      --color-primary-hover: #0077ed;
+      --color-primary-active: #0062c4;
+      --color-primary-glow: rgba(0, 113, 227, 0.35);
+
+      /* Dark Theme (Default) */
+      --bg-canvas: #0a0a0c;
+      --bg-glass-card: rgba(22, 22, 26, 0.72);
+      --bg-glass-card-hover: rgba(26, 26, 32, 0.78);
+      --border-glass: rgba(255, 255, 255, 0.14);
+      --border-glass-bright: rgba(255, 255, 255, 0.28);
+      
+      --bg-input: rgba(30, 30, 36, 0.65);
+      --bg-input-focus: rgba(36, 36, 44, 0.85);
+      --border-input: rgba(255, 255, 255, 0.12);
+      --border-input-focus: #0071e3;
+      
+      --text-main: #f5f5f7;
+      --text-sub: #86868b;
+      --text-secondary: #a1a1a6;
+      --text-muted: #6e6e73;
+      
+      --color-danger: #ff453a;
+      --color-danger-bg: rgba(255, 69, 58, 0.14);
+      --color-danger-border: rgba(255, 69, 58, 0.35);
+      
+      --color-success: #30d158;
+      --color-success-bg: rgba(48, 209, 88, 0.14);
+      --color-success-border: rgba(48, 209, 88, 0.35);
+
+      --card-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.65), 0 18px 36px -18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      --radius-card: 20px;
+      --radius-input: 11px;
+      --radius-btn: 11px;
+    }
+
+    /* Light Theme */
+    [data-theme="light"] {
+      --bg-canvas: #f5f5f7;
+      --bg-glass-card: rgba(255, 255, 255, 0.75);
+      --bg-glass-card-hover: rgba(255, 255, 255, 0.85);
+      --border-glass: rgba(0, 0, 0, 0.08);
+      --border-glass-bright: rgba(0, 0, 0, 0.16);
+
+      --bg-input: rgba(240, 240, 243, 0.8);
+      --bg-input-focus: #ffffff;
+      --border-input: rgba(0, 0, 0, 0.12);
+      --border-input-focus: #0071e3;
+
+      --text-main: #1d1d1f;
+      --text-sub: #86868b;
+      --text-secondary: #515154;
+      --text-muted: #86868b;
+
+      --color-danger-bg: rgba(255, 59, 48, 0.1);
+      --color-danger-border: rgba(255, 59, 48, 0.3);
+
+      --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 10px 24px -10px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-system);
+      background-color: var(--bg-canvas);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow-x: hidden;
+      transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+    }
+
+    /* Ambient Dynamic Glowing Background Orbs */
+    .ambient-glow {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .glow-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.35;
+      transition: all 1s ease;
+    }
+
+    .orb-1 {
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, #0071e3 0%, rgba(0, 113, 227, 0) 70%);
+      top: -120px;
+      right: -80px;
+      animation: floatOrb 18s ease-in-out infinite alternate;
+    }
+
+    .orb-2 {
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle, #5e5ce6 0%, rgba(94, 92, 230, 0) 70%);
+      bottom: -100px;
+      left: -80px;
+      animation: floatOrb 22s ease-in-out infinite alternate-reverse;
+    }
+
+    .orb-3 {
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, #2997ff 0%, rgba(41, 151, 255, 0) 70%);
+      top: 40%;
+      left: 20%;
+      opacity: 0.15;
+    }
+
+    [data-theme="light"] .glow-orb {
+      opacity: 0.22;
+      filter: blur(100px);
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-40px, 60px) scale(1.08); }
+    }
+
+    /* Theme Switch Button */
+    .top-toolbar {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .theme-btn {
+      background: var(--bg-glass-card);
+      border: 1px solid var(--border-glass);
+      color: var(--text-secondary);
+      border-radius: 20px;
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .theme-btn:active {
+      transform: scale(0.92);
+    }
+
+    .theme-btn:hover {
+      background: var(--bg-glass-card-hover);
+      color: var(--text-main);
+      border-color: var(--border-glass-bright);
+    }
+
+    .theme-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Glassmorphism Auth Card */
+    .login-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 430px;
+      padding: 24px;
+    }
+
+    .login-card {
+      background: var(--bg-glass-card);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-card);
+      padding: 40px 36px;
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      box-shadow: var(--card-shadow);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+      position: relative;
+    }
+
+    /* Specular Light Catch Edge */
+    .login-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 20px;
+      right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-glass-bright), transparent);
+    }
+
+    /* Brand Header */
+    .brand-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .brand-icon-wrapper {
+      width: 68px;
+      height: 68px;
+      margin: 0 auto 16px;
+      border-radius: 17px;
+      background: linear-gradient(135deg, rgba(0, 113, 227, 0.2) 0%, rgba(94, 92, 230, 0.15) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 24px -6px rgba(0, 113, 227, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    }
+
+    .brand-icon-wrapper img,
+    .brand-icon-wrapper svg {
+      width: 40px;
+      height: 40px;
+      color: #0071e3;
+    }
+
+    .app-title {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .app-subtitle {
+      font-size: 13.5px;
+      color: var(--text-sub);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    /* Security Status Badge */
+    .security-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(0, 113, 227, 0.1);
+      border: 1px solid rgba(0, 113, 227, 0.25);
+      border-radius: 12px;
+      font-size: 11px;
+      color: #2997ff;
+      margin-top: 10px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .security-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Alert / Error Banner */
+    .alert-banner {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 22px;
+      animation: alertSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .alert-banner.visible {
+      display: flex;
+      background: var(--color-danger-bg);
+      border: 1px solid var(--color-danger-border);
+      color: var(--color-danger);
+    }
+
+    .alert-banner svg {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      margin-top: 1px;
+    }
+
+    @keyframes alertSlideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      margin-bottom: 7px;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+      width: 17px;
+      height: 17px;
+      transition: color 0.2s ease;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 44px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius-input);
+      padding: 0 40px 0 40px;
+      font-family: var(--font-system);
+      font-size: 14.5px;
+      color: var(--text-main);
+      outline: none;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .form-input:focus {
+      background: var(--bg-input-focus);
+      border-color: var(--border-input-focus);
+      box-shadow: 0 0 0 3.5px var(--color-primary-glow);
+    }
+
+    .form-input:focus + .input-icon,
+    .form-input:focus ~ .input-icon {
+      color: var(--color-primary);
+    }
+
+    .toggle-pwd {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: color 0.2s ease;
+    }
+
+    .toggle-pwd:hover {
+      color: var(--text-main);
+    }
+
+    .toggle-pwd svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    /* Submit Button (Apple Style) */
+    .btn-submit {
+      width: 100%;
+      height: 46px;
+      background: linear-gradient(180deg, var(--color-primary-hover) 0%, var(--color-primary) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: var(--radius-btn);
+      color: #ffffff;
+      font-family: var(--font-system);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px 0 rgba(0, 113, 227, 0.39), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+      margin-top: 26px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      background: linear-gradient(180deg, #007bf2 0%, var(--color-primary-hover) 100%);
+      box-shadow: 0 6px 20px 0 rgba(0, 113, 227, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-submit:active:not(:disabled) {
+      transform: scale(0.98);
+      background: var(--color-primary-active);
+      box-shadow: 0 2px 6px 0 rgba(0, 113, 227, 0.3);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Card Footer Info */
+    .card-footer {
+      margin-top: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .footer-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    /* Reduced Motion Accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      .glow-orb { animation: none !important; }
+      .alert-banner { animation: none !important; }
+      .btn-submit { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Orbs -->
+  <div class="ambient-glow" aria-hidden="true">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+  </div>
+
+  <!-- Top Toolbar -->
+  <div class="top-toolbar">
+    <button class="theme-btn" id="btnThemeToggle" title="切换深色/浅色外观" aria-label="切换外观模式">
+      <svg class="icon-sun" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Login Card -->
+  <div class="login-wrapper">
+    <main class="login-card">
+      
+      <!-- Brand Header -->
+      <div class="brand-header">
+        <div class="brand-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 12c-2.5-3.5-1-6 1-7 2 1 2.5 4 0 7z"/>
+            <path d="M12 12c3.5-2.5 6-1 7 1-1 2-4 2.5-7 0z"/>
+            <path d="M12 12c2.5 3.5 1 6-1 7-2-1-2.5-4 0-7z"/>
+            <path d="M12 12c-3.5 2.5-6 1-7-1 1-2 4-2.5 7 0z"/>
+          </svg>
+        </div>
+        <h1 class="app-title">云枢 · 身份鉴权</h1>
+        <p class="app-subtitle">多品牌服务器集群温控与运维管理中心</p>
+        <div class="security-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span>端到端会话隔离 · 访问管控</span>
+        </div>
+      </div>
+
+      <!-- Alert Banner (Initially completely hidden) -->
+      <div class="alert-banner" id="alertBanner" role="alert" style="display: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="alertMessage"></span>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm" autocomplete="on">
+        
+        <div class="form-group">
+          <label class="form-label" for="txtUsername">管理员账号</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <input 
+              type="text" 
+              id="txtUsername" 
+              name="username" 
+              class="form-input" 
+              placeholder="请输入管理员用户名" 
+              required 
+              autofocus 
+              autocomplete="username"
+            >
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="txtPassword">访问密码</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <input 
+              type="password" 
+              id="txtPassword" 
+              name="password" 
+              class="form-input" 
+              placeholder="请输入访问密码" 
+              required 
+              autocomplete="current-password"
+            >
+            <button type="button" class="toggle-pwd" id="btnTogglePwd" title="显示/隐藏密码" aria-label="显示/隐藏密码">
+              <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnLogin">
+          <span class="spinner" id="loginSpinner"></span>
+          <span id="btnLoginText">安全登录</span>
+        </button>
+
+      </form>
+
+      <!-- Footer Info -->
+      <footer class="card-footer">
+        <span>Dell · 浪潮 · 华为</span>
+        <span class="footer-dot"></span>
+        <span>IPMI & SSH 双栈</span>
+        <span class="footer-dot"></span>
+        <span>v2.2 Web</span>
+      </footer>
+
+    </main>
+  </div>
+
+  <script src="/ui/api_client.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const form = document.getElementById('loginForm');
+      const txtUsername = document.getElementById('txtUsername');
+      const txtPassword = document.getElementById('txtPassword');
+      const btnLogin = document.getElementById('btnLogin');
+      const btnLoginText = document.getElementById('btnLoginText');
+      const loginSpinner = document.getElementById('loginSpinner');
+      const alertBanner = document.getElementById('alertBanner');
+      const alertMessage = document.getElementById('alertMessage');
+      const btnTogglePwd = document.getElementById('btnTogglePwd');
+      const eyeIcon = document.getElementById('eyeIcon');
+      const btnThemeToggle = document.getElementById('btnThemeToggle');
+      const iconSun = document.querySelector('.icon-sun');
+      const iconMoon = document.querySelector('.icon-moon');
+
+      // Check current theme
+      function initTheme() {
+        const savedTheme = localStorage.getItem('yunshu_theme') || 'dark';
+        applyTheme(savedTheme);
+      }
+
+      function applyTheme(theme) {
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+          iconSun.style.display = 'none';
+          iconMoon.style.display = 'block';
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          iconSun.style.display = 'block';
+          iconMoon.style.display = 'none';
+        }
+        localStorage.setItem('yunshu_theme', theme);
+      }
+
+      btnThemeToggle.addEventListener('click', () => {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        applyTheme(isLight ? 'dark' : 'light');
+      });
+
+      initTheme();
+
+      // Password Toggle
+      btnTogglePwd.addEventListener('click', () => {
+        const isPwd = txtPassword.type === 'password';
+        txtPassword.type = isPwd ? 'text' : 'password';
+        eyeIcon.innerHTML = isPwd
+          ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`
+          : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+      });
+
+      // Show alert error
+      function showError(msg) {
+        alertMessage.textContent = msg;
+        alertBanner.classList.add('visible');
+        alertBanner.style.display = 'flex';
+      }
+
+      function hideError() {
+        alertBanner.classList.remove('visible');
+        alertBanner.style.display = 'none';
+        alertMessage.textContent = '';
+      }
+
+      // Initial clean state
+      hideError();
+
+      // Check if user is already logged in
+      async function checkExistingSession() {
+        const user = await window.Auth.getSession();
+        if (user) {
+          // Already authenticated, navigate directly to main dashboard
+          window.location.href = '/';
+        }
+      }
+
+      checkExistingSession();
+
+      // Form submission
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideError();
+
+        const username = txtUsername.value.trim();
+        const password = txtPassword.value;
+
+        if (!username || !password) {
+          showError('请完整输入用户名与密码');
+          return;
+        }
+
+        // Set UI loading state
+        btnLogin.disabled = true;
+        loginSpinner.style.display = 'inline-block';
+        btnLoginText.textContent = '验证凭据中...';
+
+        try {
+          const res = await window.Auth.login(username, password);
+          if (res.success) {
+            btnLoginText.textContent = '验证通过，进入系统...';
+            // Smooth transition
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 300);
+          } else {
+            showError(res.message || '用户名或密码错误');
+            btnLogin.disabled = false;
+            loginSpinner.style.display = 'none';
+            btnLoginText.textContent = '安全登录';
+            txtPassword.select();
+          }
+        } catch (err) {
+          showError('网络通信异常，请确认服务器服务已启动');
+          btnLogin.disabled = false;
+          loginSpinner.style.display = 'none';
+          btnLoginText.textContent = '安全登录';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime logs & persistent caches
+logs/
+*.log
+sdr_cache/
+data/
+
+# Environment / local development
+apple-design-skill/
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE & OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
