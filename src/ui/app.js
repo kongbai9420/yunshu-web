@@ -2568,6 +2568,58 @@ window.openHardwareNodeDetailModal = function(srvId) {
   document.getElementById('nodeModalStatus').textContent = isConn ? '联机受控 (正常)' : (isConnecting ? '正在握手获取数据...' : `离线 (${tel.error_msg || '握手超时'})`);
   document.getElementById('nodeModalTime').textContent = tel.last_updated || new Date().toLocaleTimeString();
 
+  // Query Chassis Power Status
+  const pwrBadge = document.getElementById('nodeModalPowerStatusBadge');
+  if (pwrBadge) {
+    pwrBadge.textContent = '状态: 读取中...';
+    pwrBadge.className = 'micro-capsule capsule-blue';
+    callApi('control_power', 'status', srv.id).then(res => {
+      if (res && res.success) {
+        const isOn = res.power_state === 'on' || (res.message && res.message.toLowerCase().includes('on'));
+        pwrBadge.textContent = isOn ? '电源: 已开机 (ON)' : '电源: 已关机 (OFF)';
+        pwrBadge.className = isOn ? 'micro-capsule capsule-green' : 'micro-capsule capsule-orange';
+      } else {
+        pwrBadge.textContent = '电源状态未知';
+        pwrBadge.className = 'micro-capsule';
+      }
+    });
+  }
+
+  // Bind Power Buttons to current node
+  const activeSrvId = srv.id;
+  const btnPwrOn = document.getElementById('btnNodePowerOn');
+  const btnPwrSoft = document.getElementById('btnNodePowerSoft');
+  const btnPwrReset = document.getElementById('btnNodePowerReset');
+  const btnPwrOff = document.getElementById('btnNodePowerOff');
+
+  const executePowerAction = async (action, actionName, requireConfirm = false) => {
+    if (requireConfirm) {
+      const ok = confirm(`⚠️ 安全警示：确定要对服务器「${srv.name}」执行【${actionName}】吗？\n如果操作系统正在运行，可能造成未保存数据丢失！`);
+      if (!ok) return;
+    }
+    showToast(`正在向 ${srv.name} 发送带外【${actionName}】指令...`, 'info');
+    const res = await callApi('control_power', action, activeSrvId);
+    if (res && res.success) {
+      showToast(res.message, 'success');
+      if (pwrBadge) {
+        if (action === 'on') {
+          pwrBadge.textContent = '电源: 已开机 (ON)';
+          pwrBadge.className = 'micro-capsule capsule-green';
+        } else if (action === 'off' || action === 'soft') {
+          pwrBadge.textContent = '电源: 已关机 (OFF)';
+          pwrBadge.className = 'micro-capsule capsule-orange';
+        }
+      }
+    } else {
+      showToast(res?.message || `执行【${actionName}】失败`, 'error');
+    }
+  };
+
+  if (btnPwrOn) btnPwrOn.onclick = () => executePowerAction('on', '远程开机', false);
+  if (btnPwrSoft) btnPwrSoft.onclick = () => executePowerAction('soft', '正常关机 (软关机)', true);
+  if (btnPwrReset) btnPwrReset.onclick = () => executePowerAction('reset', '硬件复位 (Reset)', true);
+  if (btnPwrOff) btnPwrOff.onclick = () => executePowerAction('off', '强制断电', true);
+
   modal.style.display = 'flex';
 };
 

@@ -450,6 +450,19 @@ class APIBridge:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def control_power(self, action: str, srv_id=None):
+        try:
+            target_srv = None
+            if srv_id:
+                for s in self._config_mgr.get_servers():
+                    if s.get("id") == srv_id:
+                        target_srv = s
+                        break
+            success, msg, pwr_state = self._ipmi_core.control_chassis_power(action, server_override=target_srv)
+            return {"success": success, "message": msg, "power_state": pwr_state}
+        except Exception as e:
+            return {"success": False, "message": str(e), "error": str(e)}
+
     def set_fan_mode(self, mode, srv_id=None):
         try:
             target_srv = None

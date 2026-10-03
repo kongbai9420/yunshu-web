@@ -881,7 +881,36 @@ class IPMICore:
         if not errors:
             return True, f"[{srv.get('name')}] 已成功应用 {preset['name']}"
         return False, f"[{srv.get('name')}] 部分风扇通道下发失败: {'; '.join(errors[:2])}"
-        return False, f"[{srv.get('name')}] 部分风扇配置失败: {'; '.join(errors)}"
+
+    def control_chassis_power(self, action: str, server_override=None):
+        """执行硬件底层电源控制 (chassis power on/off/soft/cycle/reset/status)"""
+        valid_actions = {
+            "on": "开机",
+            "off": "强制断电关机",
+            "soft": "正常软关机 (ACPI)",
+            "cycle": "冷重启 (掉电复位)",
+            "reset": "硬复位重启 (Reset)",
+            "status": "获取电源状态"
+        }
+        action = (action or "status").lower().strip()
+        if action not in valid_actions:
+            return False, f"不支持的电源操作: {action}", None
+
+        action_label = valid_actions[action]
+        srv = server_override if server_override else self.config_mgr.get_active_server()
+        srv_id = srv.get("id")
+
+        if self.demo_mode:
+            simulated_status = "on" if action != "off" else "off"
+            return True, f"[{srv.get('name')}] 电源操作【{action_label}】执行成功 (演示模式)", simulated_status
+
+        succ, out, _ = self.execute_ipmitool(["chassis", "power", action], timeout=10.0, server_override=srv)
+        clean_out = out.strip() if out else ""
+        if succ:
+            # 尝试提取电源状态 (Chassis Power is on / off)
+            pwr_state = "on" if "is on" in clean_out.lower() else ("off" if "is off" in clean_out.lower() else None)
+            return True, f"[{srv.get('name')}] 已成功执行【{action_label}】", pwr_state
+        return False, f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}", None
 
     def _ensure_sdr_cached(self, srv):
         """确保针对该节点生成本地 SDR 静态缓存文件。生成成功后后续查询均可用 -S 极速读取"""

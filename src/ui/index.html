@@ -1910,6 +1910,34 @@
           </div>
         </div>
 
+        <!-- Chassis Power Control Management (IPMI 带外电源控制) -->
+        <div style="background:var(--surface-secondary); border-radius:10px; padding:14px; border:1px solid var(--border-subtle); margin-bottom:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:15px;">⚡</span>
+              <h4 style="margin:0; font-size:13px; font-weight:600; color:var(--text-primary);">IPMI 硬件级电源控制 (带外管理)</h4>
+            </div>
+            <span class="micro-capsule capsule-blue" id="nodeModalPowerStatusBadge">状态: 检测中</span>
+          </div>
+          <p style="margin:0 0 12px 0; font-size:11.5px; color:var(--text-tertiary); line-height:1.5;">
+            基于 IPMI 2.0 底层 Chassis 电源微码，支持在关机、系统死锁或无操作系统环境下远程直接管控物理机电源。
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="primary-btn" id="btnNodePowerOn" style="font-size:12px; padding:6px 14px; background:#34c759; border-color:#34c759; display:inline-flex; align-items:center; gap:5px;">
+              <span>🟢 远程开机</span>
+            </button>
+            <button class="secondary-btn" id="btnNodePowerSoft" style="font-size:12px; padding:6px 14px; display:inline-flex; align-items:center; gap:5px;" title="向操作系统发送 ACPI 正常关机信号">
+              <span>🟡 正常关机 (软关机)</span>
+            </button>
+            <button class="secondary-btn" id="btnNodePowerReset" style="font-size:12px; padding:6px 14px; display:inline-flex; align-items:center; gap:5px;" title="触发主板 Reset 跳线硬件级重启">
+              <span>🔄 硬件复位 (Reset)</span>
+            </button>
+            <button class="secondary-btn" id="btnNodePowerOff" style="font-size:12px; padding:6px 14px; color:#ff3b30; border-color:rgba(255, 59, 48, 0.3);" title="强制切断物理机电源">
+              <span>🛑 强制断电</span>
+            </button>
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:flex-end;">
           <button class="primary-btn" id="btnConfirmCloseHardwareNodeDetail" style="padding:6px 18px;">关闭</button>
         </div>
