@@ -33,12 +33,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME || 'kbkongbai' }}/yunshu-web
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=beta,enable=${{ contains(github.ref, 'beta') }}
+            type=raw,value=beta
 
       - name: Build and Push Multi-Arch Image
         uses: docker/build-push-action@v5

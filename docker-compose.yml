@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   yunshu-web:
-    image: kbkongbai/yunshu-web:latest
+    image: kbkongbai/yunshu-web:beta
     container_name: yunshu-web
     restart: unless-stopped
     # Linux 生产环境推荐 host 模式，保证物理带外 IPMI (UDP 623) 通信零 NAT 延迟

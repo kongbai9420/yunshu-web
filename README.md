@@ -173,7 +173,7 @@ docker run -d \
   -v /opt/yunshu/config.ini:/app/config.ini \
   -v /opt/yunshu/data:/app/data \
   -v /opt/yunshu/logs:/app/logs \
-  kbkongbai/yunshu-web:latest
+  kbkongbai/yunshu-web:beta
 ```
 
 > **网络模式建议**：
@@ -191,7 +191,7 @@ version: '3.8'
 
 services:
   yunshu-web:
-    image: kbkongbai/yunshu-web:latest
+    image: kbkongbai/yunshu-web:beta
     container_name: yunshu-web
     restart: unless-stopped
     # 推荐 host 网络模式，保证与带外 BMC / IPMI 通信零 NAT 延迟
@@ -325,7 +325,7 @@ session_timeout_hours = 72
 
 本项目通过 GitHub Actions 实现了与 Docker Hub 的全自动流水线同步：
 * 支持 **`linux/amd64`** 和 **`linux/arm64`** 双主流架构；
-* 每当代码打上 Release / Tag（如 `v3.6.0-beta.2`）时，GitHub Actions 会自动编译多架构镜像并同步推送到 `kbkongbai/yunshu-web:latest` 及对应版本标签中。
+* 项目发布测试版时，GitHub Actions 会自动编译 `linux/amd64` 与 `linux/arm64` 双架构镜像，并同步更新到 Docker Hub 的单一专属标签 **`kbkongbai/yunshu-web:beta`**。
 
 ---
 
