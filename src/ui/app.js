@@ -911,6 +911,8 @@ function initSidebarTabs() {
         } else {
           renderProbeClusterMatrix();
         }
+        // 切换回实时监控大盘，立即拉取最新度量并无缝恢复秒级监控渲染
+        refreshAllData(true);
       }
       if (tabId === 'curve') renderCurveView();
       if (tabId === 'fans' && typeof window.syncManualTabSliders === 'function') window.syncManualTabSliders(true);
@@ -1167,8 +1169,35 @@ function startStatusPolling() {
   }, uiSec * 1000);
 }
 
-async function refreshAllData() {
+let nonDashboardPollCounter = 0;
+
+function isAnyModalOpen() {
+  return Array.from(document.querySelectorAll('.apple-modal-backdrop')).some(m => {
+    return m.style.display && m.style.display !== 'none';
+  });
+}
+
+async function refreshAllData(force = false) {
   if (isFetchingNow) return;
+
+  // 1. 如果有任何模态弹窗正在显示（硬件节点添加/编辑、系统服务器配置、节点控制、个人中心等），
+  // 严禁在此期间进行任何自动轮询或重绘，防止打断用户键入与导致焦点丢失！
+  if (isAnyModalOpen()) {
+    return;
+  }
+
+  // 2. 界面仅在具有实时监控数据的页面（即监控大盘 dashboard）才执行秒级高频刷新！
+  // 其他界面（设置、温控曲线、手动调速、服务器管理、预警中心、运维平台、运行日志、关于软件）严禁进行每秒频繁刷新与数据干扰！
+  // 在非监控页面下：大幅拉长心跳周期（例如每 10 秒才静默轮询一次，仅在内存中维护连接状态并更新顶栏胶囊，绝不触碰任何页面 DOM）
+  if (state.activeTab !== 'dashboard' && !force) {
+    nonDashboardPollCounter++;
+    if (nonDashboardPollCounter % 10 !== 0) {
+      return;
+    }
+  } else {
+    nonDashboardPollCounter = 0;
+  }
+
   isFetchingNow = true;
   try {
     // 从底层内存快照读取状态（耗时不到 1ms，绝不阻塞网络）
@@ -1214,10 +1243,6 @@ function applyStatusData(d) {
   if (d.subsystems) state.subsystems = d.subsystems;
   if (d.subsystem_poll_sec) {
     state.subsystem_poll_sec = d.subsystem_poll_sec;
-    const qPoll = document.getElementById('quickSubPollInput');
-    if (qPoll && document.activeElement !== qPoll) qPoll.value = d.subsystem_poll_sec;
-    const prefPoll = document.getElementById('prefSubsystemPollRate');
-    if (prefPoll && document.activeElement !== prefPoll) prefPoll.value = d.subsystem_poll_sec;
   }
   if (d.alert_history) {
     const prevCount = (state.alert_history || []).length;
@@ -1269,9 +1294,6 @@ function applyStatusData(d) {
         startStatusPolling();
       }
     }
-    if (typeof window.syncManualTabSliders === 'function') {
-      window.syncManualTabSliders();
-    }
   }
 
   // Ensure demo state takes absolute precedence during demo mode
@@ -1291,20 +1313,20 @@ function applyStatusData(d) {
   renderTitlebarPill();
 
   // STRICT TAB ISOLATION:
-  // ONLY render and mutate DOM for tabs that are actually visible!
-  // When user is on any other tab (Curve, Manual Fans, Presets, Servers, Preferences, About):
-  // The background polling DOES NOT TOUCH THE DOM AT ALL.
+  // 严格界面隔离：
+  // 仅且只有当用户处于「监控大盘 (dashboard)」界面且没有任何弹窗时，才进行 DOM 渲染！
+  // 其他任何页面（设置、曲线、手动调速、服务器管理、预警中心、运维平台、运行日志、关于软件）
+  // 绝对不触碰、不重绘、不刷新任何 DOM，杜绝一切界面刷新干扰！
   if (state.activeTab === 'dashboard') {
+    if (isAnyModalOpen()) {
+      return; // 弹窗打开时跳过重绘，保护输入焦点
+    }
     if (state.dashboardViewMode === 'detail') {
       renderDashboardMetrics();
       renderSensorsTable();
     } else {
       renderProbeClusterMatrix();
     }
-  } else if (state.activeTab === 'alerts') {
-    renderAlertsCenter();
-  } else if (state.activeTab === 'logs') {
-    refreshSystemLogs(false);
   }
 }
 
@@ -4127,6 +4149,11 @@ window.addEventListener('keydown', (e) => {
 });
 
 function renderServerManagementList() {
+  const quickPoll = document.getElementById('quickSubPollInput');
+  if (quickPoll && state.subsystem_poll_sec && document.activeElement !== quickPoll) {
+    quickPoll.value = state.subsystem_poll_sec;
+  }
+
   const container = document.getElementById('serversManagementContainer');
   const sysContainer = document.getElementById('systemServersManagementContainer');
   const nodesBadge = document.getElementById('clusterHardwareNodesCountBadge') || document.getElementById('nodesCountBadge');
