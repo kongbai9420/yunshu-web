@@ -18,35 +18,59 @@ except ImportError:
 
 logger = logging.getLogger("ssh_probe")
 
-def _enable_legacy_ssh_algorithms():
+def enable_legacy_ssh_algorithms():
     """
-    Paramiko 3.0+ 默认禁用了 ssh-rsa 与部分旧版 Diffie-Hellman 密钥交换算法。
-    为了无缝兼容各类精简版嵌入式环境（如 OpenWrt/路由器/BMC 上的 Dropbear SSH、老旧 Linux 发行版及交换机），
-    在此主动补充注册 ssh-rsa、ssh-dss 算法与 legacy kex。
+    Paramiko 3.0+ / 5.0+ 默认禁用了 ssh-rsa (SHA-1) 与部分旧版 Diffie-Hellman 密钥交换算法。
+    在支持 Dropbear SSH（如路由器/OpenWrt/BMC嵌入式Linux/老旧发行版）时：
+    1. 必须在 RSAKey.HASHES 中恢复 'ssh-rsa' -> hashes.SHA1 签名校验器；
+    2. 必须在 Transport._key_info 映射表中注册 'ssh-rsa' 的反序列化解析类（RSAKey），
+       否则密钥协商完成后，在 _verify_key 中根据 host_key_type 解析公钥时会触发 KeyError: 'ssh-rsa'；
+    3. 必须在 Transport._preferred_keys 与 _preferred_pubkeys 中包含 'ssh-rsa'；
+    4. 补充 legacy Diffie-Hellman 交换算法，确保全生命周期无缝兼容。
     """
     if not paramiko:
         return
     try:
+        from cryptography.hazmat.primitives import hashes
         from paramiko.transport import Transport
-        keys = list(Transport._preferred_keys)
-        for k in ('ssh-rsa', 'ssh-dss'):
-            if k not in keys:
-                keys.append(k)
-        Transport._preferred_keys = tuple(keys)
+        from paramiko.rsakey import RSAKey
 
-        kex = list(Transport._preferred_kex)
-        for x in ('diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1', 'diffie-hellman-group-exchange-sha1'):
-            if x not in kex:
-                kex.append(x)
-        Transport._preferred_kex = tuple(kex)
+        # 1. 恢复 RSAKey 支持 ssh-rsa 签名哈希 (SHA1)，杜绝签名校验失败
+        if hasattr(RSAKey, 'HASHES'):
+            RSAKey.HASHES['ssh-rsa'] = hashes.SHA1
+            RSAKey.HASHES['ssh-rsa-cert-v01@openssh.com'] = hashes.SHA1
 
-        # 静音 paramiko 内部的底层调试信息，避免轮询底噪刷屏
-        logging.getLogger("paramiko").setLevel(logging.WARNING)
-        logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
+        # 2. 注册公钥解析类型映射表，杜绝 KeyError: 'ssh-rsa'
+        if hasattr(Transport, '_key_info'):
+            Transport._key_info['ssh-rsa'] = RSAKey
+            Transport._key_info['ssh-rsa-cert-v01@openssh.com'] = RSAKey
+
+        # 3. 拓展客户端偏好协商的 host key 算法与公钥算法
+        for attr in ('_preferred_keys', '_preferred_pubkeys'):
+            if hasattr(Transport, attr):
+                cur = list(getattr(Transport, attr))
+                for k in ('ssh-rsa', 'ssh-rsa-cert-v01@openssh.com'):
+                    if k not in cur:
+                        cur.append(k)
+                setattr(Transport, attr, tuple(cur))
+
+        # 4. 拓展老旧服务器常用的 Diffie-Hellman 密钥交换算法
+        if hasattr(Transport, '_preferred_kex'):
+            kex = list(Transport._preferred_kex)
+            for x in ('diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1', 'diffie-hellman-group-exchange-sha1'):
+                if x not in kex:
+                    kex.append(x)
+            Transport._preferred_kex = tuple(kex)
+
+        # 5. 彻底静音 paramiko 内部的底层调试与握手底噪
+        for name in ("paramiko", "paramiko.transport", "paramiko.transport.sftp"):
+            p_logger = logging.getLogger(name)
+            p_logger.setLevel(logging.WARNING)
+            p_logger.propagate = False
     except Exception as e:
         logger.debug(f"enable_legacy_ssh_algorithms error: {e}")
 
-_enable_legacy_ssh_algorithms()
+enable_legacy_ssh_algorithms()
 
 LINUX_PROBE_SCRIPT = r"""
 if command -v python3 >/dev/null 2>&1; then
