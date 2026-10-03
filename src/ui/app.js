@@ -1023,10 +1023,13 @@ function initDashboardControls() {
       document.querySelector('.nav-item[data-tab="servers"]').click();
     });
   }
-  document.getElementById('btnAddServerQuick').addEventListener('click', () => {
-    const openBtn = document.getElementById('btnOpenAddServerModal');
-    if (openBtn) openBtn.click();
-  });
+  const btnQuickAdd = document.getElementById('btnAddServerQuick');
+  if (btnQuickAdd) {
+    btnQuickAdd.addEventListener('click', () => {
+      const openBtn = document.getElementById('btnOpenAddServerModal');
+      if (openBtn) openBtn.click();
+    });
+  }
 
   // Probe Layout Switcher (方块 Grid / 长条 Row)
   const probeLayoutSwitch = document.getElementById('probeLayoutSwitch');
