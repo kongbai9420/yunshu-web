@@ -1576,6 +1576,24 @@ function renderFanCardsGrid(isOnline) {
   }
 }
 
+function getBrandDisplayName(brand) {
+  const brandDisplayMap = {
+    'dell': 'Dell (戴尔)',
+    'inspur': '浪潮 Inspur',
+    'huawei': '华为 Huawei',
+    'lenovo': '联想 Lenovo',
+    'hpe': '惠普 HPE',
+    'h3c': '新华三 H3C',
+    'supermicro': '超微 Supermicro',
+    'zte': '中兴 ZTE',
+    'asrock': '华擎 ASRock',
+    'asus': '华硕 ASUS',
+    'generic': '标准 IPMI'
+  };
+  const b = (brand || '').toLowerCase();
+  return brandDisplayMap[b] || (b ? b.toUpperCase() : 'Dell (戴尔)');
+}
+
 // Requirement 3: 探针矩阵视图 (Probe Cluster Matrix) - 支持方块/长条双样式、状态筛选、多选与批量温控下发
 function getVisibleServers() {
   const filter = state.probeFilter || 'all';
@@ -1772,7 +1790,7 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                   <div style="min-width:0; flex:1;">
                     <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px;">
                       <div style="display:flex; align-items:center; gap:4px;">
-                        <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+                        <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:0px 5px; line-height:14px;">${getBrandDisplayName(node.brand)}</span>
                       </div>
                       <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                     </div>
@@ -1913,7 +1931,7 @@ function renderProbeClusterMatrix(forceRebuild = false) {
                 <div style="min-width:0; flex:1;">
                   <div style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; margin-bottom:2px;">
                     <div style="display:flex; align-items:center; gap:4px;">
-                      <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${node.brand ? (node.brand === 'inspur' ? '浪潮 Inspur' : (node.brand === 'huawei' ? '华为 Huawei' : (node.brand === 'supermicro' ? '超微' : (node.brand === 'lenovo' ? '联想' : 'IPMI 硬件节点')))) : 'IPMI 硬件节点'}</span>
+                      <span class="micro-capsule capsule-blue" style="font-size:8.5px; padding:1px 5px; line-height:12px;">${getBrandDisplayName(node.brand)}</span>
                     </div>
                     <span class="probe-name probe-srv-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;" title="${node.name}">${node.name}</span>
                   </div>
@@ -3391,6 +3409,35 @@ function initFanMatrix() {
     });
   }
 
+  // 辅助函数: 依据当前激活服务器代际结构智能预估 RPM (全品牌全代际自适应)
+  function getEstimatedFanRpm(pct) {
+    const srv = state.servers.find(s => s.id === state.activeServer?.id) || state.servers[0] || {};
+    const model = ((srv.model || '') + ' ' + (srv.name || '')).toUpperCase();
+    const brand = (srv.brand || '').toLowerCase();
+    
+    // 1U 高密小口径机型 (Dell R640/R650/R630, 华为 1288H, 浪潮 NF5180, 联想 SR630 等)
+    if (model.includes('R640') || model.includes('R650') || model.includes('R630') || model.includes('R620') || model.includes('1288H') || model.includes('NF5180') || model.includes('SR630')) {
+      return Math.round(2500 + (pct / 100) * 21500);
+    }
+    // 塔式机箱 / 92/120mm 大口径风扇
+    if (model.includes('T430') || model.includes('T630') || model.includes('T640') || model.includes('T440') || model.includes('ML350') || model.includes('塔式')) {
+      return Math.round(800 + (pct / 100) * 6700);
+    }
+    // 2U 现代机型 (Dell R740/R750/14G/15G/16G, 华为 2288H V5/V6, 浪潮 NF5280M5/M6, 联想 SR650 等)
+    if (model.includes('R740') || model.includes('R750') || model.includes('14G') || model.includes('15G') || model.includes('16G') || model.includes('2288H V5') || model.includes('2288H V6') || model.includes('NF5280M5') || model.includes('NF5280M6') || model.includes('SR650')) {
+      return Math.round(2000 + (pct / 100) * 17500);
+    }
+    // 经典 12G/13G 机型 (Dell R730/R720, 浪潮 NF5280M4, 华为 2288H V3 等)
+    if (model.includes('R730') || model.includes('R720') || model.includes('12G') || model.includes('13G') || model.includes('NF5280M4') || model.includes('2288H V3')) {
+      return Math.round(1200 + (pct / 100) * 11300);
+    }
+    // 其他品牌通用
+    if (brand === 'inspur' || brand === 'huawei' || brand === 'lenovo' || brand === 'h3c') {
+      return Math.round(1800 + (pct / 100) * 14700);
+    }
+    return Math.round(1500 + (pct / 100) * 13500);
+  }
+
   // 4. 全局风扇滑块与快捷档位联动
   const globalSlider = document.getElementById('tabGlobalFanSlider');
   const globalBadge = document.getElementById('tabGlobalFanValBadge');
@@ -3399,7 +3446,7 @@ function initFanMatrix() {
     globalSlider.addEventListener('input', (e) => {
       const v = parseInt(e.target.value, 10);
       if (globalBadge) globalBadge.textContent = `${v}%`;
-      if (globalRpm) globalRpm.textContent = `约 ${Math.round(1200 + (v / 100) * 11500)} RPM`;
+      if (globalRpm) globalRpm.textContent = `约 ${getEstimatedFanRpm(v)} RPM`;
       // 同时联动各通道默认显示
       for (let i = 0; i < 6; i++) {
         const inp = document.getElementById(`fanInput_${i}`);
@@ -3416,7 +3463,7 @@ function initFanMatrix() {
     if (globalSlider) {
       globalSlider.value = val;
       if (globalBadge) globalBadge.textContent = `${val}%`;
-      if (globalRpm) globalRpm.textContent = `约 ${Math.round(1200 + (val / 100) * 11500)} RPM`;
+      if (globalRpm) globalRpm.textContent = `约 ${getEstimatedFanRpm(val)} RPM`;
     }
     for (let i = 0; i < 6; i++) {
       const inp = document.getElementById(`fanInput_${i}`);
@@ -3437,7 +3484,7 @@ function initFanMatrix() {
       if (globalSlider && document.activeElement !== globalSlider) {
         globalSlider.value = sp;
         if (globalBadge) globalBadge.textContent = `${sp}%`;
-        if (globalRpm) globalRpm.textContent = `约 ${Math.round(1200 + (sp / 100) * 11500)} RPM`;
+        if (globalRpm) globalRpm.textContent = `约 ${getEstimatedFanRpm(sp)} RPM`;
       }
     }
     const modeType = state.config?.ipmi?.manual_mode_type || 'global';

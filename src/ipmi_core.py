@@ -187,19 +187,7 @@ class IPMICore:
         return self.demo_mode
 
     def _locate_ipmitool(self):
-        # 1. 在非 Windows 系统（Linux / Docker / macOS），优先查找系统环境变量及标准路径中的原生 ipmitool
-        if sys.platform != "win32":
-            import shutil
-            sys_tool = shutil.which("ipmitool")
-            if sys_tool and os.path.exists(sys_tool):
-                return sys_tool
-            for p in ["/usr/bin/ipmitool", "/usr/local/bin/ipmitool", "/opt/homebrew/bin/ipmitool"]:
-                if os.path.exists(p):
-                    return p
-            return "ipmitool"
-
-        # 2. Windows 平台：查找打包资源或附带的 Cygwin ipmitool.exe
-        tool_names = ["ipmitool.exe", "ipmitool"]
+        tool_names = ["ipmitool", "ipmitool.exe"]
         if hasattr(sys, "_MEIPASS"):
             for t in tool_names:
                 for sub in ["assets", ""]:
@@ -209,16 +197,24 @@ class IPMICore:
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         candidates = [
+            os.path.join(base_dir, "assets", "ipmitool"),
             os.path.join(base_dir, "assets", "ipmitool.exe"),
+            os.path.join(base_dir, "..", "assets", "ipmitool"),
             os.path.join(base_dir, "..", "assets", "ipmitool.exe"),
+            os.path.join(base_dir, "ipmitool"),
             os.path.join(base_dir, "ipmitool.exe"),
+            "/opt/homebrew/bin/ipmitool",  # macOS Apple Silicon (M1/M2/M3/M4)
+            "/usr/local/bin/ipmitool",     # macOS Intel / Homebrew
+            "/usr/bin/ipmitool",
             os.path.join(os.getcwd(), "src", "assets", "ipmitool.exe"),
             os.path.join(os.getcwd(), "assets", "ipmitool.exe"),
+            os.path.join(os.getcwd(), "Dell_EMC_Fans_Controller_1.0.2（添加单风扇控制）", "ipmitool.exe"),
+            os.path.join(os.getcwd(), "Dell_EMC_Fans_Controller_1.0.2（添加单风扇控制）", "Dell风扇调速-自动温控版v2.2", "Dell", "SysMgt", "bmc", "ipmitool.exe")
         ]
         for c in candidates:
             if os.path.exists(c):
                 return os.path.abspath(c)
-        return "ipmitool.exe"
+        return "ipmitool" if sys.platform != "win32" else "ipmitool.exe"
 
     def _ensure_path_env(self):
         if os.path.exists(self.ipmitool_path):
@@ -487,7 +483,7 @@ class IPMICore:
 
         # 分析 mc info
         mc_lower = out_mc.lower() if succ_mc else ""
-        if "inspur" in mc_lower or "379" in mc_lower:
+        if "inspur" in mc_lower or "37945" in mc_lower or "379" in mc_lower:
             detected_brand = "inspur"
             detected_brand_name = "Inspur (浪潮)"
         elif "huawei" in mc_lower or "2011" in mc_lower:
@@ -499,6 +495,24 @@ class IPMICore:
         elif "lenovo" in mc_lower or "19046" in mc_lower or "ibm" in mc_lower:
             detected_brand = "lenovo"
             detected_brand_name = "Lenovo (联想)"
+        elif "hp" in mc_lower or "hpe" in mc_lower or "hewlett" in mc_lower or "232" in mc_lower:
+            detected_brand = "hpe"
+            detected_brand_name = "HPE (惠普)"
+        elif "h3c" in mc_lower or "25506" in mc_lower:
+            detected_brand = "h3c"
+            detected_brand_name = "H3C (新华三)"
+        elif "zte" in mc_lower or "3902" in mc_lower or "中兴" in mc_lower:
+            detected_brand = "zte"
+            detected_brand_name = "ZTE (中兴)"
+        elif "sugon" in mc_lower or "dawning" in mc_lower or "39999" in mc_lower:
+            detected_brand = "sugon"
+            detected_brand_name = "Sugon (中科曙光)"
+        elif "asrock" in mc_lower or "asrockrack" in mc_lower:
+            detected_brand = "asrock"
+            detected_brand_name = "ASRock Rack (华擎)"
+        elif "asus" in mc_lower or "asustek" in mc_lower:
+            detected_brand = "asus"
+            detected_brand_name = "ASUS (华硕)"
         elif "dell" in mc_lower or "674" in mc_lower:
             detected_brand = "dell"
             detected_brand_name = "Dell (戴尔)"
@@ -527,6 +541,24 @@ class IPMICore:
                     elif "lenovo" in vl or "ibm" in vl:
                         detected_brand = "lenovo"
                         detected_brand_name = "Lenovo (联想)"
+                    elif "hewlett" in vl or "hpe" in vl or "hp" in vl:
+                        detected_brand = "hpe"
+                        detected_brand_name = "HPE (惠普)"
+                    elif "h3c" in vl:
+                        detected_brand = "h3c"
+                        detected_brand_name = "H3C (新华三)"
+                    elif "zte" in vl or "中兴" in vl:
+                        detected_brand = "zte"
+                        detected_brand_name = "ZTE (中兴)"
+                    elif "sugon" in vl or "dawning" in vl:
+                        detected_brand = "sugon"
+                        detected_brand_name = "Sugon (中科曙光)"
+                    elif "asrock" in vl:
+                        detected_brand = "asrock"
+                        detected_brand_name = "ASRock Rack (华擎)"
+                    elif "asus" in vl:
+                        detected_brand = "asus"
+                        detected_brand_name = "ASUS (华硕)"
                     elif "dell" in vl:
                         detected_brand = "dell"
                         detected_brand_name = "Dell (戴尔)"
@@ -568,62 +600,158 @@ class IPMICore:
             }
 
     def _execute_brand_fan_control(self, srv, cmd_type, speed_percent=25, fan_index=None):
-        """多品牌服务器风扇指令适配驱动 (支持 Dell, 浪潮 Inspur, 华为 Huawei, 超微 Supermicro)"""
+        """全品牌服务器风扇指令适配驱动 (支持 Dell, 浪潮 Inspur, 华为 Huawei, 联想 Lenovo, 惠普 HPE, 华三 H3C, 超微 Supermicro, 中兴 ZTE, 华擎 ASRock, 通用)"""
         brand = (srv.get("brand") or "dell").lower()
-        sp_hex = f"0x{max(0, min(100, int(speed_percent))):02x}"
+        sp_pct = max(0, min(100, int(speed_percent)))
+        sp_hex = f"0x{sp_pct:02x}"
 
-        # 1. 浪潮 (Inspur) M4 / M5 / M6
+        # 1. 浪潮 (Inspur) M4 / M5 / M6 / M7
         if brand == "inspur":
             if cmd_type == "auto":
                 return self.execute_ipmitool(["raw", "0x3a", "0x01", "0x01"], server_override=srv)
             elif cmd_type in ("manual", "set_all"):
-                # 0x3a 0x01 0x00 禁用自动控温；0x3a 0x02 <hex> 设定全局转速
+                # 0x3a 0x01 0x00 禁用自动控温；0x3a 0x02 <hex> 设定全局转速 (M4/M5)；若失败尝试 M6/M7 格式 0x3a 0x02 0x00 <hex>
                 self.execute_ipmitool(["raw", "0x3a", "0x01", "0x00"], server_override=srv)
-                time.sleep(0.2)
-                return self.execute_ipmitool(["raw", "0x3a", "0x02", sp_hex], server_override=srv)
+                time.sleep(0.15)
+                succ, out, lat = self.execute_ipmitool(["raw", "0x3a", "0x02", sp_hex], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x3a", "0x02", "0x00", sp_hex], server_override=srv)
+                return succ, out, lat
             elif cmd_type == "set_single":
-                # 浪潮单扇区调速
                 fan_id = f"0x{(fan_index or 0):02x}"
                 self.execute_ipmitool(["raw", "0x3a", "0x01", "0x00"], server_override=srv)
-                time.sleep(0.2)
-                return self.execute_ipmitool(["raw", "0x3a", "0x02", sp_hex], server_override=srv)
+                time.sleep(0.15)
+                return self.execute_ipmitool(["raw", "0x3a", "0x02", fan_id, sp_hex], server_override=srv)
 
-        # 2. 华为 (Huawei) FusionServer / RH2288
-        elif brand == "huawei":
+        # 2. 华为 (Huawei) FusionServer / RH2288 / 1288H / TaiShan
+        elif brand in ("huawei", "zte"):
             if cmd_type == "auto":
                 return self.execute_ipmitool(["raw", "0x30", "0x90", "0x00"], server_override=srv)
             elif cmd_type in ("manual", "set_all"):
                 # 0x30 0x90 0x01 <hex> 切手动并设速
                 return self.execute_ipmitool(["raw", "0x30", "0x90", "0x01", sp_hex], server_override=srv)
             elif cmd_type == "set_single":
-                return self.execute_ipmitool(["raw", "0x30", "0x90", "0x01", sp_hex], server_override=srv)
+                fan_id = f"0x{(fan_index or 0):02x}"
+                return self.execute_ipmitool(["raw", "0x30", "0x90", "0x02", fan_id, sp_hex], server_override=srv)
 
-        # 3. 超微 (Supermicro)
+        # 3. 联想 (Lenovo) ThinkSystem XCC / IBM System x M5 (IMM2)
+        elif brand in ("lenovo", "ibm"):
+            if cmd_type == "auto":
+                # 优先 XCC，备选 IMM2
+                succ, out, lat = self.execute_ipmitool(["raw", "0x3a", "0x01", "0x01"], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x3a", "0x07", "0x00"], server_override=srv)
+                return succ, out, lat
+            elif cmd_type in ("manual", "set_all"):
+                # XCC 调速
+                self.execute_ipmitool(["raw", "0x3a", "0x01", "0x00"], server_override=srv)
+                time.sleep(0.15)
+                succ, out, lat = self.execute_ipmitool(["raw", "0x3a", "0x02", sp_hex], server_override=srv)
+                if not succ:
+                    # IMM2 调速
+                    self.execute_ipmitool(["raw", "0x3a", "0x07", "0x01"], server_override=srv)
+                    time.sleep(0.15)
+                    return self.execute_ipmitool(["raw", "0x3a", "0x07", "0x02", "0x00", sp_hex], server_override=srv)
+                return succ, out, lat
+            elif cmd_type == "set_single":
+                fan_id = f"0x{(fan_index or 0):02x}"
+                self.execute_ipmitool(["raw", "0x3a", "0x01", "0x00"], server_override=srv)
+                time.sleep(0.15)
+                return self.execute_ipmitool(["raw", "0x3a", "0x02", fan_id, sp_hex], server_override=srv)
+
+        # 4. 惠普 (HPE) ProLiant Gen8 / Gen9 / Gen10 (iLO4 / iLO5)
+        elif brand in ("hpe", "hp"):
+            if cmd_type == "auto":
+                succ, out, lat = self.execute_ipmitool(["raw", "0x30", "0x22", "0x00"], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x2e", "0x04", "0x00", "0x00"], server_override=srv)
+                return succ, out, lat
+            elif cmd_type in ("manual", "set_all"):
+                succ, out, lat = self.execute_ipmitool(["raw", "0x30", "0x22", "0x01", sp_hex], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x2e", "0x04", "0x01", sp_hex], server_override=srv)
+                return succ, out, lat
+            elif cmd_type == "set_single":
+                fan_id = f"0x{(fan_index or 0):02x}"
+                return self.execute_ipmitool(["raw", "0x30", "0x22", "0x02", fan_id, sp_hex], server_override=srv)
+
+        # 5. 华三 (H3C) UniServer R4900 / R4700 G3/G5 (HDM)
+        elif brand == "h3c":
+            if cmd_type == "auto":
+                succ, out, lat = self.execute_ipmitool(["raw", "0x30", "0x90", "0x00"], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x32", "0xbb", "0x00"], server_override=srv)
+                return succ, out, lat
+            elif cmd_type in ("manual", "set_all"):
+                succ, out, lat = self.execute_ipmitool(["raw", "0x30", "0x90", "0x01", sp_hex], server_override=srv)
+                if not succ:
+                    return self.execute_ipmitool(["raw", "0x32", "0xbb", "0x01", sp_hex], server_override=srv)
+                return succ, out, lat
+            elif cmd_type == "set_single":
+                fan_id = f"0x{(fan_index or 0):02x}"
+                return self.execute_ipmitool(["raw", "0x30", "0x90", "0x02", fan_id, sp_hex], server_override=srv)
+
+        # 6. 超微 (Supermicro) X9 / X10 / X11 / X12 / H11 / H12
         elif brand == "supermicro":
             if cmd_type == "auto":
-                # Optimal 最佳自动模式
+                # Optimal 最佳自动模式 (0x02)
                 return self.execute_ipmitool(["raw", "0x30", "0x45", "0x01", "0x02"], server_override=srv)
             elif cmd_type in ("manual", "set_all"):
-                # 设为 Full 全速或通过 0x70 设定扇区百分比
+                # 设为 Full 全速并在 Zone 0 与 Zone 1 同步施加细粒度 PWM
                 self.execute_ipmitool(["raw", "0x30", "0x45", "0x01", "0x01"], server_override=srv)
-                time.sleep(0.2)
-                return self.execute_ipmitool(["raw", "0x30", "0x70", "0x66", "0x01", "0x00", sp_hex], server_override=srv)
+                time.sleep(0.15)
+                self.execute_ipmitool(["raw", "0x30", "0x70", "0x66", "0x01", "0x00", sp_hex], server_override=srv)
+                return self.execute_ipmitool(["raw", "0x30", "0x70", "0x66", "0x01", "0x01", sp_hex], server_override=srv)
             elif cmd_type == "set_single":
                 fan_id = f"0x{(fan_index or 0):02x}"
                 return self.execute_ipmitool(["raw", "0x30", "0x70", "0x66", "0x01", fan_id, sp_hex], server_override=srv)
 
-        # 默认：戴尔 (Dell PowerEdge) 12G/13G/14G/15G
-        else:
+        # 7. 华擎 / 华硕 (ASRock Rack / ASUS)
+        elif brand in ("asrock", "asus"):
+            if cmd_type == "auto":
+                return self.execute_ipmitool(["raw", "0x3a", "0x01", "0x00", "0x00"], server_override=srv)
+            elif cmd_type in ("manual", "set_all"):
+                return self.execute_ipmitool(["raw", "0x3a", "0x01", "0x01", sp_hex], server_override=srv)
+            elif cmd_type == "set_single":
+                fan_id = f"0x{(fan_index or 0):02x}"
+                return self.execute_ipmitool(["raw", "0x3a", "0x01", "0x01", fan_id, sp_hex], server_override=srv)
+
+        # 8. 默认：戴尔 (Dell PowerEdge) 12G/13G/14G/15G/16G
+        elif brand == "dell":
             if cmd_type == "auto":
                 return self.execute_ipmitool(["raw", "0x30", "0x30", "0x01", "0x01"], server_override=srv)
             elif cmd_type in ("manual", "set_all"):
                 self.execute_ipmitool(["raw", "0x30", "0x30", "0x01", "0x00"], server_override=srv)
-                time.sleep(0.2)
+                time.sleep(0.15)
                 return self.execute_ipmitool(["raw", "0x30", "0x30", "0x02", "0xff", sp_hex], server_override=srv)
             elif cmd_type == "set_single":
                 fan_id = f"0x{(fan_index or 0):02x}"
                 self.execute_ipmitool(["raw", "0x30", "0x30", "0x01", "0x00"], server_override=srv)
-                time.sleep(0.2)
+                time.sleep(0.15)
+                return self.execute_ipmitool(["raw", "0x30", "0x30", "0x02", fan_id, sp_hex], server_override=srv)
+
+        # 9. 通用白牌机 (Generic IPMI 2.0 自动多协议探测兜底)
+        else:
+            if cmd_type == "auto":
+                for auto_cmd in (["raw", "0x30", "0x30", "0x01", "0x01"], ["raw", "0x3a", "0x01", "0x01"], ["raw", "0x30", "0x90", "0x00"], ["raw", "0x30", "0x45", "0x01", "0x02"]):
+                    succ, out, lat = self.execute_ipmitool(auto_cmd, server_override=srv)
+                    if succ: return succ, out, lat
+                return False, "通用自动模式下发未受支持", 0
+            elif cmd_type in ("manual", "set_all"):
+                # 尝试主流常见协议序列
+                for m_pair in [
+                    (["raw", "0x30", "0x30", "0x01", "0x00"], ["raw", "0x30", "0x30", "0x02", "0xff", sp_hex]),
+                    (["raw", "0x3a", "0x01", "0x00"], ["raw", "0x3a", "0x02", sp_hex]),
+                    ([], ["raw", "0x30", "0x90", "0x01", sp_hex]),
+                    (["raw", "0x30", "0x45", "0x01", "0x01"], ["raw", "0x30", "0x70", "0x66", "0x01", "0x00", sp_hex])
+                ]:
+                    if m_pair[0]: self.execute_ipmitool(m_pair[0], server_override=srv)
+                    succ, out, lat = self.execute_ipmitool(m_pair[1], server_override=srv)
+                    if succ: return succ, out, lat
+                return False, "通用手动模式下发未受支持", 0
+            elif cmd_type == "set_single":
+                fan_id = f"0x{(fan_index or 0):02x}"
+                self.execute_ipmitool(["raw", "0x30", "0x30", "0x01", "0x00"], server_override=srv)
                 return self.execute_ipmitool(["raw", "0x30", "0x30", "0x02", fan_id, sp_hex], server_override=srv)
 
     def set_fan_mode(self, mode, server_override=None):
@@ -633,7 +761,6 @@ class IPMICore:
 
         mode_names = {"auto": "原厂托管", "dynamic": "曲线温控", "manual": "手动全局", "preset": "情景方案"}
         mode_label = mode_names.get(mode, mode)
-        logger.info(f"[{srv.get('name')}] 温控模式切换为: {mode_label}")
 
         if self.demo_mode:
             with self.lock:
@@ -722,7 +849,6 @@ class IPMICore:
 
         if not preserve_mode:
             self.config_mgr.set_server_mode(srv_id, "manual", manual_speed=speed_percent)
-            logger.info(f"[{srv.get('name')}] 手动设定全局风扇转速 -> {speed_percent}%")
 
         if self.demo_mode:
             with self.lock:
@@ -883,53 +1009,7 @@ class IPMICore:
         if not errors:
             return True, f"[{srv.get('name')}] 已成功应用 {preset['name']}"
         return False, f"[{srv.get('name')}] 部分风扇通道下发失败: {'; '.join(errors[:2])}"
-
-    def control_chassis_power(self, action: str, server_override=None):
-        """执行硬件底层电源控制 (chassis power on/off/soft/cycle/reset/status)"""
-        valid_actions = {
-            "on": "开机",
-            "off": "强制断电关机",
-            "soft": "正常软关机 (ACPI)",
-            "cycle": "冷重启 (掉电复位)",
-            "reset": "硬复位重启 (Reset)",
-            "status": "获取电源状态"
-        }
-        action = (action or "status").lower().strip()
-        if action not in valid_actions:
-            return {"success": False, "error": f"不支持的电源操作: {action}", "message": f"不支持的电源操作: {action}"}
-
-        action_label = valid_actions[action]
-        srv = server_override if server_override else self.config_mgr.get_active_server()
-        srv_id = srv.get("id")
-
-        if self.demo_mode:
-            simulated_status = "on" if action != "off" else "off"
-            return {
-                "success": True,
-                "action": action,
-                "message": f"[{srv.get('name')}] 电源操作【{action_label}】执行成功 (演示模式)",
-                "power_state": simulated_status
-            }
-
-        succ, out, _ = self.execute_ipmitool(["chassis", "power", action], timeout=10.0, server_override=srv)
-        clean_out = out.strip() if out else ""
-        if succ:
-            # 尝试提取电源状态 (Chassis Power is on / off)
-            pwr_state = "on" if "is on" in clean_out.lower() else ("off" if "is off" in clean_out.lower() else None)
-            return {
-                "success": True,
-                "action": action,
-                "message": f"[{srv.get('name')}] 已成功执行【{action_label}】",
-                "power_state": pwr_state,
-                "output": clean_out
-            }
-        return {
-            "success": False,
-            "action": action,
-            "error": f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}",
-            "message": f"[{srv.get('name')}] 执行【{action_label}】失败: {clean_out}",
-            "output": clean_out
-        }
+        return False, f"[{srv.get('name')}] 部分风扇配置失败: {'; '.join(errors)}"
 
     def _ensure_sdr_cached(self, srv):
         """确保针对该节点生成本地 SDR 静态缓存文件。生成成功后后续查询均可用 -S 极速读取"""
@@ -996,11 +1076,75 @@ class IPMICore:
             }, lat
         return False, {}, lat
 
-    def parse_sensor_output(self, raw_output):
+    def get_server_fan_max_rpm(self, server_override=None) -> float:
+        """
+        动态智能计算与匹配各品牌各形态服务器的风扇满载额定最高转速 (Max RPM)。
+        支持自适应学习：优先使用从 SDR 传感器中动态提取或实测历史最高极速，确保百分比精准映射。
+        """
+        srv = server_override or self.config_mgr.get_active_server() or {}
+        srv_id = srv.get("id", "srv_default")
+        
+        # 1. 检查动态历史测得缓存（若机器曾被全速跑过或 SDR 读到更高转速，动态自适应校准）
+        cached_max = getattr(self, "_learned_fan_max_rpm", {}).get(srv_id)
+        if cached_max and cached_max > 3000:
+            return float(cached_max)
+
+        model_str = (srv.get("model", "") or "").upper()
+        name_str = (srv.get("name", "") or "").upper()
+        brand_str = (srv.get("brand", "") or "").lower()
+        full_id = f"{brand_str} {model_str} {name_str}"
+
+        # 1U 机型 (Dell R640/R650/R630/R620, 华为 1288H, 浪潮 NF5180, 联想 SR630, 惠普 DL360 等): 40mm 高压双对转风扇，极速达 24000~28000 RPM
+        if any(m in full_id for m in ("R640", "R650", "R630", "R620", "R6515", "1288H", "NF5180", "SR630", "DL360", "1U")):
+            return 24000.0
+
+        # 塔式机箱 / 大口径慢速风扇 (Dell T430/T630/T640/T440/T340, HPE ML350 等): 92/120mm 风扇，满速仅 6000~8000 RPM
+        if any(m in full_id for m in ("T430", "T630", "T640", "T340", "T140", "T440", "T620", "ML350", "ML110", "塔式", "TOWER")):
+            return 7500.0
+
+        # 戴尔 14G/15G/16G 2U 机型 (R740, R740xd, R750, R7525, R7425, R840, R940 等):
+        # 标配风扇约 15,000 RPM；高风量金标 (Very High Performance) 风扇满载高达 19,500 ~ 21,600 RPM
+        if any(m in full_id for m in ("R740", "R740XD", "R750", "R7525", "R7425", "R840", "R940", "14G", "15G", "16G")):
+            return 19500.0
+
+        # 华为 2U 现代机型 (FusionServer 2288H V5 / V6 / 2288X 等):
+        # 标配 15,500 RPM，高配 18,500 RPM
+        if any(m in full_id for m in ("2288H V5", "2288H V6", "2288HV5", "2288HV6", "2288X")):
+            return 18500.0
+
+        # 浪潮 2U 现代机型 (NF5280M5, NF5280M6, NF5270M5 等):
+        # 满载转速通常在 16,500 ~ 18,500 RPM 之间
+        if any(m in full_id for m in ("NF5280M5", "NF5280M6", "NF5270M5", "NF5280 M5", "NF5280 M6")):
+            return 17500.0
+
+        # 联想 2U 现代机型 (ThinkSystem SR650 / SR658 等):
+        if any(m in full_id for m in ("SR650", "SR658", "SR550")):
+            return 18000.0
+
+        # 惠普 2U 现代机型 (ProLiant DL380 Gen10 / DL388 Gen10 等):
+        if any(m in full_id for m in ("DL380 GEN10", "DL388 GEN10", "GEN10")):
+            return 18000.0
+
+        # 戴尔经典 12G/13G 机型 (R730, R730xd, R720 等): 标配风扇 11,500 ~ 12,500 RPM
+        if any(m in full_id for m in ("R730", "R720", "R710", "12G", "13G", "2288H V3", "NF5280M4", "DL380 GEN9", "DL380P GEN8")):
+            return 12500.0
+
+        # 品牌通用基准
+        if brand_str in ("inspur", "huawei", "lenovo", "h3c", "zte"):
+            return 16500.0
+        elif brand_str == "supermicro":
+            return 14500.0
+
+        return 15000.0
+
+    def parse_sensor_output(self, raw_output, server_override=None):
         all_sensors = []
         cpu_temps = []
         inlet_temp = None
         fans = []
+
+        srv_id = (server_override.get("id") if server_override else "srv_default")
+        base_max_rpm = self.get_server_fan_max_rpm(server_override)
 
         lines = raw_output.strip().splitlines()
         for line in lines:
@@ -1100,7 +1244,15 @@ class IPMICore:
                 try:
                     rpm_val = int(float(val_str))
                     if rpm_val >= 0:
-                        pct = min(100, max(0, int((rpm_val / 12500.0) * 100)))
+                        # 动态自适应基准：若实测转速突破预设上限，智能自适应学习并更新该服务器专属峰值
+                        if not hasattr(self, "_learned_fan_max_rpm"):
+                            self._learned_fan_max_rpm = {}
+                        if rpm_val > base_max_rpm:
+                            base_max_rpm = float(rpm_val) * 1.05
+                            self._learned_fan_max_rpm[srv_id] = base_max_rpm
+                        
+                        fan_ceiling = max(base_max_rpm, float(rpm_val))
+                        pct = min(100, max(0, int(round((rpm_val / fan_ceiling) * 100))))
                         fans.append({
                             "name": name,
                             "rpm": rpm_val,
@@ -1267,7 +1419,7 @@ class IPMICore:
 
         # 仅在命令本身网络成功返回，但极端特殊主板未导出温度风扇时，静默探测备用 sensor
         if succ and out:
-            temp_parsed = self.parse_sensor_output(out)
+            temp_parsed = self.parse_sensor_output(out, server_override=srv)
             if not temp_parsed.get("fans") and not temp_parsed.get("cpu_temps"):
                 succ_sensor, out_sensor, lat_sensor = self.execute_ipmitool(["sensor"], timeout=max(8.0, srv_to + 4.0), server_override=srv)
                 if succ_sensor and out_sensor:
@@ -1290,11 +1442,14 @@ class IPMICore:
                 node_ping_retries = self.config_mgr.get_int("node_ping_retry_count", 2)
                 was_connected = (srv_id in self.cluster_telemetry and self.cluster_telemetry[srv_id].get("connected"))
                 if was_connected and fail_count <= node_ping_retries:
-                    logger.warning(f"Node [{name} ({ip})] 探针瞬时抖动容错 ({fail_count}/{node_ping_retries+1}): {out.strip()[:60]}... 保持最后健康遥测")
                     self.cluster_telemetry[srv_id]["latency_ms"] = latency
                     if srv_id == active_id:
                         self.last_sensor_data["latency_ms"] = latency
                     return
+
+                # 超过重试阈值确认断开时才记录真实错误日志
+                if was_connected or srv_id not in self.cluster_telemetry or self.cluster_telemetry[srv_id].get("connected"):
+                    logger.error(f"节点 [{name} ({ip})] 离线或握手失败: {out.strip() or '连接超时或鉴权未响应'}")
 
                 self.cluster_telemetry[srv_id] = {
                     "id": srv_id,
@@ -1320,7 +1475,7 @@ class IPMICore:
                 return
             else:
                 self._node_fail_counts[srv_id] = 0
-                parsed = self.parse_sensor_output(out)
+                parsed = self.parse_sensor_output(out, server_override=srv)
                 avg_rpm = int(sum([f["rpm"] for f in parsed["fans"]]) / len(parsed["fans"])) if parsed["fans"] else 0
                 power_data = parsed.get("power", {
                     "total_watts": None,
@@ -1332,7 +1487,8 @@ class IPMICore:
                 existing_tel = self.cluster_telemetry.get(srv_id, {})
                 merged_all_sensors = parsed["all_sensors"] if need_full_scan or not existing_tel.get("all_sensors") else existing_tel.get("all_sensors", [])
 
-                # 动态计算综合风扇目标百分比
+                # 动态计算综合风扇目标百分比 (依据各机型专属满载基准转速精准反推)
+                srv_max_rpm = self.get_server_fan_max_rpm(srv)
                 srv_mode = srv.get("mode", "auto")
                 if srv_mode == "manual":
                     effective_pct = int(srv.get("manual_speed", 25))
@@ -1340,9 +1496,9 @@ class IPMICore:
                     pk = srv.get("preset_key", "silent")
                     effective_pct = PRESETS.get(pk, PRESETS["silent"])["speeds"][0]
                 elif srv_mode == "dynamic":
-                    effective_pct = self._last_applied_speeds.get(srv_id, int(round((avg_rpm / 12500.0) * 100)) if avg_rpm else 25)
-                else: # auto 原厂托管模式：由物理转速实时反推 Dell iDRAC 当前实际下发的风扇转速百分比
-                    effective_pct = int(round((avg_rpm / 12500.0) * 100)) if avg_rpm else 20
+                    effective_pct = self._last_applied_speeds.get(srv_id, int(round((avg_rpm / srv_max_rpm) * 100)) if avg_rpm else 25)
+                else: # auto 原厂托管模式：由物理转速实时反推当前实际下发的风扇转速百分比
+                    effective_pct = int(round((avg_rpm / srv_max_rpm) * 100)) if avg_rpm else 20
                 effective_pct = max(0, min(100, effective_pct))
 
                 # 若 DCMI 读取到了最新瞬时温度，优先融合更新 CPU 温度与进气温度
@@ -1387,6 +1543,113 @@ class IPMICore:
                     self.last_sensor_data["all_sensors"] = merged_all_sensors
                     self.last_sensor_data["power"] = self.cluster_telemetry[srv_id]["power"]
                     self.last_sensor_data["error_msg"] = ""
+
+    def control_chassis_power(self, action: str, server_override=None):
+        """
+        IPMI 机箱电源控制 (chassis power)
+        action: 'status' | 'on' | 'off' | 'cycle' | 'reset' | 'soft'
+        """
+        valid_actions = {
+            "on": "开机 (Power On)",
+            "off": "强制断电关机 (Power Off)",
+            "soft": "ACPI 安全软关机 (Soft Shutdown)",
+            "reset": "硬件强制重启 (Chassis Reset)",
+            "cycle": "冷重启 (Power Cycle)",
+            "status": "查询电源状态"
+        }
+        if action not in valid_actions:
+            return {"success": False, "error": f"不支持的电源操作: {action}"}
+
+        target_srv = server_override if server_override else self.config_mgr.get_active_server()
+        srv_name = target_srv.get("name", target_srv.get("ip", "服务器"))
+        action_desc = valid_actions[action]
+
+        if self.demo_mode:
+            logger.info(f"[演示模式] 模拟向 [{srv_name}] 下发 IPMI 电源指令 [{action_desc}]")
+            return {
+                "success": True,
+                "action": action,
+                "message": f"演示模式：已成功向 [{srv_name}] 模拟发送 IPMI 电源指令 [{action_desc}]",
+                "output": f"Chassis Power Control: {action.capitalize()}"
+            }
+
+        # 执行 ipmitool chassis power <action>
+        # 超时设置 8 秒，足以覆盖 RMCP+ 握手与响应
+        success, out, latency = self.execute_ipmitool(["chassis", "power", action], timeout=8.0, server_override=target_srv)
+
+        if success:
+            logger.info(f"IPMI 电源管理: 成功向 [{srv_name}] 发送指令 [{action_desc}], 输出: {out.strip()}")
+            return {
+                "success": True,
+                "action": action,
+                "message": f"[{srv_name}] IPMI 电源指令 [{action_desc}] 发送成功: {out.strip()}",
+                "output": out.strip(),
+                "latency_ms": latency
+            }
+        else:
+            logger.error(f"IPMI 电源管理失败: 向 [{srv_name}] 发送指令 [{action_desc}] 失败: {out.strip()}")
+            return {
+                "success": False,
+                "action": action,
+                "error": f"[{srv_name}] IPMI 电源操作 [{action_desc}] 失败: {out.strip()}",
+                "latency_ms": latency
+            }
+
+    def control_dell_pcie_fan_response(self, action: str = "status", server_override=None):
+        """
+        控制戴尔 13G/14G/15G (如 R730, R740, R750) 第三方 PCIe 卡强制风扇散热响应:
+        action: 'status' (查询) | 'disable' (关闭狂转，恢复静音) | 'enable' (开启默认保护)
+        """
+        target_srv = server_override if server_override else self.config_mgr.get_active_server()
+        srv_name = target_srv.get("name", target_srv.get("ip", "服务器"))
+
+        if self.demo_mode:
+            return {
+                "success": True,
+                "action": action,
+                "pcie_fan_response": "disabled" if action == "disable" else "enabled",
+                "message": f"[演示模式] [{srv_name}] 第三方 PCIe 散热响应操作 [{action}] 成功"
+            }
+
+        if action == "status":
+            cmd = ["raw", "0x30", "0xce", "0x01", "0x16", "0x05", "0x00", "0x00", "0x00"]
+            succ, out, lat = self.execute_ipmitool(cmd, timeout=5.0, server_override=target_srv)
+            if succ:
+                out_clean = out.strip().replace(" ", "").lower()
+                is_disabled = out_clean.endswith("00") or out_clean.endswith("1605000000")
+                return {
+                    "success": True,
+                    "action": "status",
+                    "pcie_fan_response": "disabled" if is_disabled else "enabled",
+                    "message": f"[{srv_name}] 第三方 PCIe 散热响应: {'已禁用 (风扇可安静低转)' if is_disabled else '已启用 (插卡后风扇可能强制高转)'}"
+                }
+            return {"success": False, "error": f"查询 PCIe 散热响应失败: {out.strip()}"}
+
+        elif action == "disable":
+            # 禁用第三方 PCIe 卡自动拉高风扇转速 (关闭狂转)
+            cmd = ["raw", "0x30", "0xce", "0x00", "0x16", "0x05", "0x00", "0x00", "0x00", "0x05", "0x00", "0x00", "0x00", "0x00"]
+            succ, out, lat = self.execute_ipmitool(cmd, timeout=5.0, server_override=target_srv)
+            if succ:
+                return {
+                    "success": True,
+                    "action": "disable",
+                    "message": f"[{srv_name}] 已成功禁用第三方 PCIe 风扇加速！R740等机型插非原装卡不再被强制拉高转速"
+                }
+            return {"success": False, "error": f"禁用 PCIe 风扇响应失败: {out.strip()}"}
+
+        elif action == "enable":
+            # 恢复默认散热响应
+            cmd = ["raw", "0x30", "0xce", "0x00", "0x16", "0x05", "0x00", "0x00", "0x00", "0x05", "0x00", "0x00", "0x00", "0x01"]
+            succ, out, lat = self.execute_ipmitool(cmd, timeout=5.0, server_override=target_srv)
+            if succ:
+                return {
+                    "success": True,
+                    "action": "enable",
+                    "message": f"[{srv_name}] 已恢复第三方 PCIe 默认散热响应"
+                }
+            return {"success": False, "error": f"恢复 PCIe 风扇响应失败: {out.strip()}"}
+
+        return {"success": False, "error": f"未知操作: {action}"}
 
     def ping_single_node_fast(self, srv):
         """轻量级极速测活（仅需 50~150ms）：通过 chassis power status 或 Raw 0x06 0x01 进行秒级连通性握手"""
@@ -1477,12 +1740,16 @@ class IPMICore:
             cur_speed = max(5, min(100, cur_speed))
 
             fans = []
+            max_rpm_profile = self.get_server_fan_max_rpm(srv)
+            min_rpm_profile = max(1000, int(max_rpm_profile * 0.10))
+            rpm_range = max_rpm_profile - min_rpm_profile
+
             for i in range(1, 7):
-                jitter = random.uniform(-40, 40)
-                target_rpm = int(1400 + (cur_speed / 100.0) * 11000 + jitter)
+                jitter = random.uniform(-30, 30)
+                target_rpm = int(min_rpm_profile + (cur_speed / 100.0) * rpm_range + jitter)
                 fans.append({
                     "name": f"Fan{i} RPM",
-                    "rpm": max(1200, target_rpm),
+                    "rpm": max(min_rpm_profile, min(int(max_rpm_profile), target_rpm)),
                     "speed_pct": cur_speed,
                     "status": "ok"
                 })
@@ -1808,7 +2075,6 @@ class IPMICore:
 
         last_spd = self._last_applied_speeds.get(srv_id, -1)
         if abs(target_speed - last_spd) >= 2 or last_spd == -1:
-            logger.debug(f"Node [{target_srv.get('name')}] Dynamic Adjust: CPU={max_cpu_temp}C -> Target Speed={target_speed}%")
             self.set_all_fans_speed(target_speed, server_override=target_srv, preserve_mode=True)
             self._last_applied_speeds[srv_id] = target_speed
 

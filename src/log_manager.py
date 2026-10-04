@@ -39,16 +39,22 @@ class SmartLogFilter(logging.Filter):
         "ciphers",
         "initial fast ping",
         "probe loop tick",
-        "fast cwd"
+        "fast cwd",
+        "error reading ssh protocol banner",
+        "incompatible ssh peer",
+        "eof in transport thread"
     ]
 
     def filter(self, record: logging.LogRecord) -> bool:
+        # 1. 过滤第三方库内部输出的冗余 Traceback 或瞬态中断堆栈（如 paramiko 的 _check_banner EOFError）
+        # 此类网络握手瞬态异常由业务层 (ssh_probe) 汇总为简洁友好的错误提示，不直接在底层打印多行 Python 堆栈刷屏
         logger_name = (record.name or "").lower()
         msg = (record.getMessage() or "").lower()
 
-        # 1. 过滤 paramiko 底层内部传输线程捕获的 banner/eof 握手原始异常栈（应用层已有防抖重试与卡片错误提示，避免底噪堆栈刷屏）
-        if "paramiko" in logger_name and ("banner" in msg or "eof" in msg or "readline" in msg):
-            return False
+        if "paramiko" in logger_name:
+            for kw in ("error reading ssh protocol banner", "incompatible ssh peer", "traceback (most recent call last)"):
+                if kw in msg:
+                    return False
 
         # 2. 任何警告、错误及严重故障，100% 绝对保留
         if record.levelno >= logging.WARNING:
@@ -165,22 +171,19 @@ class LogManager:
             root_logger.addHandler(file_handler)
 
     def set_debug_mode(self, enabled: bool):
-        if isinstance(enabled, str):
-            self.debug_mode = enabled.strip().lower() in ("1", "true", "yes", "on")
-        else:
-            self.debug_mode = bool(enabled)
+        self.debug_mode = bool(enabled)
         if self.config_mgr:
-            if hasattr(self.config_mgr, "set_log_param"):
-                self.config_mgr.set_log_param("log_debug_mode", self.debug_mode)
-            else:
-                self.config_mgr.set("log_debug_mode", self.debug_mode)
-                self.config_mgr.save()
+            self.config_mgr.set_log_param("log_debug_mode", self.debug_mode)
+            # 清理历史遗留的 ipmi 节点中的 log_debug_mode
+            if self.config_mgr.config.has_section("ipmi") and self.config_mgr.config.has_option("ipmi", "log_debug_mode"):
+                self.config_mgr.config.remove_option("ipmi", "log_debug_mode")
+            self.config_mgr.save()
 
     def get_debug_mode(self) -> bool:
         if self.config_mgr:
-            if hasattr(self.config_mgr, "get_log_param"):
-                return bool(self.config_mgr.get_log_param("log_debug_mode", False))
-            return bool(self.config_mgr.get("log_debug_mode", False))
+            val = self.config_mgr.get_log_param("log_debug_mode", None)
+            if val is not None:
+                return bool(val)
         return self.debug_mode
 
     def get_logs(self, limit=300) -> List[Dict[str, Any]]:

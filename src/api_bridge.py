@@ -112,7 +112,7 @@ class APIBridge:
         self._config_mgr = config_mgr
         self._ssh_probe_mgr = ssh_probe_mgr
         self._alert_engine = alert_engine
-        self._log_mgr = log_mgr
+        self._log_mgr = log_mgr or (LogManager.get_instance(config_mgr) if config_mgr else LogManager.get_instance())
         self._window = None
         self._is_maximized = False
         self._node_uptime_tracker = {}
@@ -397,8 +397,6 @@ class APIBridge:
                     return {"success": True, "os_name": "Ubuntu 22.04 LTS", "message": "已识别: Ubuntu 22.04.4 LTS"}
 
             import paramiko
-            from ssh_probe import enable_legacy_ssh_algorithms
-            enable_legacy_ssh_algorithms()
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             client.connect(
@@ -406,8 +404,9 @@ class APIBridge:
                 port=int(port or 22),
                 username=user.strip(),
                 password=password or None,
-                timeout=5.0,
-                banner_timeout=5.0,
+                timeout=6.0,
+                banner_timeout=12.0,
+                auth_timeout=8.0,
                 look_for_keys=False,
                 allow_agent=False
             )
@@ -731,52 +730,46 @@ class APIBridge:
             return {"success": False, "error": str(e)}
 
     def control_server_power(self, *args, **kwargs):
-        """对指定硬件节点执行 IPMI 电源控制 (chassis power on/off/soft/reset/cycle/status)"""
-        # 支持 (srv_id, action) 与 (action, srv_id) 双向参数自适应
-        srv_id = None
-        action = None
-        if len(args) >= 2:
-            a1, a2 = args[0], args[1]
-            if str(a1).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
-                action, srv_id = str(a1).lower(), str(a2)
-            else:
-                srv_id, action = str(a1), str(a2).lower()
-        elif len(args) == 1:
-            if str(args[0]).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
-                action = str(args[0]).lower()
-                srv_id = self._config_mgr.get("active_server_id", "srv_primary")
-            else:
-                srv_id = str(args[0])
-                action = "status"
-        else:
-            srv_id = kwargs.get("srv_id") or kwargs.get("server_id") or self._config_mgr.get("active_server_id", "srv_primary")
-            action = kwargs.get("action", "status")
-
+        """对指定硬件节点执行 IPMI 电源控制 (支持 srv_id, action 或 action, srv_id 自适应)"""
         try:
+            srv_id = None
+            action = "status"
+            if len(args) >= 2:
+                a1, a2 = args[0], args[1]
+                if str(a1).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
+                    action, srv_id = str(a1).lower(), str(a2)
+                else:
+                    srv_id, action = str(a1), str(a2).lower()
+            elif len(args) == 1:
+                if str(args[0]).lower() in ("on", "off", "soft", "reset", "cycle", "status"):
+                    action = str(args[0]).lower()
+                    srv_id = self._config_mgr.get("active_server_id", "srv_primary")
+                else:
+                    srv_id = str(args[0])
+            else:
+                srv_id = kwargs.get("srv_id") or kwargs.get("server_id") or self._config_mgr.get("active_server_id", "srv_primary")
+                action = kwargs.get("action", "status")
+
             srv = next((s for s in self._config_mgr.get_servers() if s.get("id") == srv_id), None)
             if not srv:
                 return {"success": False, "error": f"未找到 ID 为 [{srv_id}] 的硬件节点"}
-            res = self._ipmi_core.control_chassis_power(action, server_override=srv)
-            if isinstance(res, dict):
-                return res
-            if isinstance(res, (list, tuple)):
-                succ = bool(res[0])
-                msg = res[1] if len(res) > 1 else ""
-                pwr_state = res[2] if len(res) > 2 else None
-                return {
-                    "success": succ,
-                    "action": action,
-                    "message": msg,
-                    "power_state": pwr_state
-                }
-            return {"success": True, "data": res}
+            return self._ipmi_core.control_chassis_power(action, server_override=srv)
         except Exception as e:
             logger.error(f"control_server_power error: {e}")
             return {"success": False, "error": f"电源控制执行异常: {str(e)}"}
 
     def control_power(self, *args, **kwargs):
-        """兼容 Web 与前端各版本调用的电源控制别名方法: control_power(action, srv_id) 或 control_power(srv_id, action)"""
+        """兼容 Web 与各版本别名调用的电源控制方法"""
         return self.control_server_power(*args, **kwargs)
+
+    def control_pcie_fan_response(self, action="status", srv_id=None):
+        """控制戴尔 13G/14G/15G (R730, R740, R750 等) 第三方 PCIe 卡强制散热狂转 (status/disable/enable)"""
+        try:
+            srv = next((s for s in self._config_mgr.get_servers() if s.get("id") == srv_id), None) if srv_id else None
+            return self._ipmi_core.control_dell_pcie_fan_response(action, server_override=srv)
+        except Exception as e:
+            logger.error(f"control_pcie_fan_response error: {e}")
+            return {"success": False, "error": f"PCIe 散热控制异常: {str(e)}"}
 
     def minimize_window(self):
         if self._window:
@@ -1121,15 +1114,17 @@ class APIBridge:
 
     def set_log_debug_mode(self, enabled):
         try:
+            is_enabled = bool(enabled)
             if isinstance(enabled, str):
-                b_enabled = enabled.strip().lower() in ("1", "true", "yes", "on")
-            else:
-                b_enabled = bool(enabled)
+                is_enabled = enabled.strip().lower() in ("1", "true", "yes", "on")
             if self._log_mgr:
-                self._log_mgr.set_debug_mode(b_enabled)
+                self._log_mgr.set_debug_mode(is_enabled)
             if self._config_mgr:
-                self._config_mgr.set_log_param("log_debug_mode", b_enabled)
-            return {"success": True, "debug_mode": b_enabled, "message": f"已{'开启调试日志模式' if b_enabled else '切换为仅显示错误告警'}"}
+                self._config_mgr.set_log_param("log_debug_mode", is_enabled)
+                if self._config_mgr.config.has_section("ipmi") and self._config_mgr.config.has_option("ipmi", "log_debug_mode"):
+                    self._config_mgr.config.remove_option("ipmi", "log_debug_mode")
+                    self._config_mgr.save()
+            return {"success": True, "debug_mode": is_enabled, "message": f"已{'开启全量调试日志' if is_enabled else '切换为仅显示错误告警'}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
